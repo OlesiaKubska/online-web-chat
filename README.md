@@ -1,15 +1,15 @@
 # Online Web Chat
 
-Fullstack chat application built with Django, React, and PostgreSQL using Docker.
+Fullstack chat application built with **Django**, **React**, and **PostgreSQL** using **Docker**.
 
 ---
 
 ## 🚀 Tech Stack
 
-- Backend: Django, Django REST Framework
-- Frontend: React + Vite + TypeScript
-- Database: PostgreSQL
-- DevOps: Docker, Docker Compose
+- **Backend:** Django, Django REST Framework
+- **Frontend:** React + Vite + TypeScript
+- **Database:** PostgreSQL
+- **DevOps:** Docker, Docker Compose
 
 ---
 
@@ -47,6 +47,6 @@ DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,backend
 
 ## 🌐 Services
 
-_Frontend:_ `http://localhost:5173`
-_Backend API:_ `http://localhost:8000`
-_Health check:_ `http://localhost:8000/api/health/`
+- **Frontend:** `http://localhost:5173`
+- **Backend API:** `http://localhost:8000`
+- **Health check:** `http://localhost:8000/api/health/`
