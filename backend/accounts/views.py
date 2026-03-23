@@ -2,16 +2,20 @@ from django.contrib.auth import login, logout
 from rest_framework import generics, status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
 
 from .serializers import RegisterSerializer
 from .login_serializers import LoginSerializer
 
 # Create your views here.
 
+@method_decorator(csrf_exempt, name='dispatch')
 class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
 
 
+@csrf_exempt
 @api_view(['POST'])
 def login_view(request):
     serializer = LoginSerializer(data=request.data)
@@ -30,6 +34,7 @@ def login_view(request):
     }, status=status.HTTP_200_OK)
 
 
+@csrf_exempt
 @api_view(['POST'])
 def logout_view(request):
     logout(request)
