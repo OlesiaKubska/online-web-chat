@@ -1,21 +1,16 @@
-import { useEffect, useState } from "react";
+import { Routes, Route } from 'react-router-dom'
+import HomePage from './HomePage'
+import RegisterPage from './RegisterPage'
+import LoginPage from './LoginPage'
 
 function App() {
-  const [status, setStatus] = useState("Loading...");
-
-  useEffect(() => {
-    fetch("http://localhost:8000/api/health/")
-      .then((res) => res.json())
-      .then((data) => setStatus(data.status))
-      .catch(() => setStatus("Error"));
-  }, []);
-
   return (
-    <div style={{ padding: "20px" }}>
-      <h1>Online Chat Client</h1>
-      <p>Backend status: {status}</p>
-    </div>
-  );
+    <Routes>
+      <Route path="/" element={<HomePage />} />
+      <Route path="/register" element={<RegisterPage />} />
+      <Route path="/login" element={<LoginPage />} />
+    </Routes>
+  )
 }
 
-export default App;
+export default App
