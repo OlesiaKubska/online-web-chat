@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'channels',
     'core',
+    'accounts',
 ]
 
 MIDDLEWARE = [
@@ -74,6 +75,15 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 ASGI_APPLICATION = 'config.asgi.application'
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.AllowAny',
+    ],
+}
 
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
@@ -121,6 +131,12 @@ USE_I18N = True
 USE_TZ = True
 
 CORS_ALLOW_ALL_ORIGINS = True
+
+CORS_ALLOW_CREDENTIALS = True
+
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:5173',
+]
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
