@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
+import { getCurrentUser } from "./lib/roomsApi";
 
 interface User {
   id: number;
@@ -18,16 +19,8 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const response = await fetch("http://localhost:8000/api/auth/me/", {
-          credentials: "include",
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          setUser(data);
-        } else {
-          setUser(null);
-        }
+        const data = await getCurrentUser();
+        setUser(data);
       } catch {
         setUser(null);
       } finally {

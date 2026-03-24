@@ -3,6 +3,13 @@ import { useParams, useNavigate } from "react-router-dom";
 import { getRoomById, leaveRoom, joinRoom } from "../lib/roomsApi";
 import { ApiError } from "../lib/api";
 import type { Room } from "../types/room";
+import { palette, primaryButtonStyle, secondaryButtonStyle, dangerButtonStyle, inputStyle, panelTitleStyle } from "../styles/roomsTheme";
+import { Panel } from "../components/rooms/Panel";
+import { StatCard } from "../components/rooms/StatCard";
+import { InfoRow } from "../components/rooms/InfoRow";
+import { MetaPill } from "../components/rooms/MetaPill";
+import { LoadingState } from "../components/rooms/LoadingState";
+import { ErrorState } from "../components/rooms/ErrorState";
 
 export default function RoomDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -35,6 +42,7 @@ export default function RoomDetailPage() {
       if (showPageLoader) {
         setLoading(true);
       }
+
       setError(null);
       const roomData = await getRoomById(roomId);
       setRoom(roomData);
@@ -56,87 +64,6 @@ export default function RoomDetailPage() {
       }
     }
   };
-
-  if (loading) {
-    return (
-      <div style={{ padding: "20px" }}>
-        <div style={{ marginBottom: "20px" }}>
-          <button
-            onClick={() => navigate("/rooms")}
-            style={{
-              padding: "8px 16px",
-              backgroundColor: "#6c757d",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer",
-            }}
-          >
-            ← Back to rooms
-          </button>
-        </div>
-        Loading room...
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div style={{ padding: "20px" }}>
-        <div style={{ marginBottom: "20px" }}>
-          <button
-            onClick={() => navigate("/rooms")}
-            style={{
-              padding: "8px 16px",
-              backgroundColor: "#6c757d",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer",
-            }}
-          >
-            ← Back to rooms
-          </button>
-        </div>
-
-        <div
-          style={{
-            padding: "20px",
-            backgroundColor: "#f8d7da",
-            border: "1px solid #f5c6cb",
-            borderRadius: "4px",
-            color: "#721c24",
-          }}
-        >
-          <h2 style={{ margin: "0 0 10px 0" }}>Error</h2>
-          <p style={{ margin: 0 }}>{error}</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!room) {
-    return (
-      <div style={{ padding: "20px" }}>
-        <div style={{ marginBottom: "20px" }}>
-          <button
-            onClick={() => navigate("/rooms")}
-            style={{
-              padding: "8px 16px",
-              backgroundColor: "#6c757d",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer",
-            }}
-          >
-            ← Back to rooms
-          </button>
-        </div>
-        Room not found
-      </div>
-    );
-  }
 
   const handleJoin = async () => {
     if (!room) return;
@@ -166,138 +93,343 @@ export default function RoomDetailPage() {
     }
   };
 
+  if (loading) {
+    return (
+      <PageShell>
+        <TopBar onBack={() => navigate("/rooms")} />
+        <div style={{ maxWidth: "1280px", margin: "0 auto" }}>
+          <LoadingState />
+        </div>
+      </PageShell>
+    );
+  }
+
+  if (error) {
+    return (
+      <PageShell>
+        <TopBar onBack={() => navigate("/rooms")} />
+        <div style={{ maxWidth: "1280px", margin: "0 auto" }}>
+          <ErrorState message={error} />
+        </div>
+      </PageShell>
+    );
+  }
+
+  if (!room) {
+    return (
+      <PageShell>
+        <TopBar onBack={() => navigate("/rooms")} />
+        <div style={{ maxWidth: "1280px", margin: "0 auto" }}>
+          <ErrorState message="Room not found" />
+        </div>
+      </PageShell>
+    );
+  }
+
   return (
-    <div style={{ padding: "20px", maxWidth: "800px", margin: "0 auto" }}>
-      <div style={{ marginBottom: "20px" }}>
-        <button
-          onClick={() => navigate("/rooms")}
+    <PageShell>
+      <div style={{ maxWidth: "1280px", margin: "0 auto" }}>
+        <TopBar onBack={() => navigate("/rooms")} />
+
+        <header
           style={{
-            padding: "8px 16px",
-            backgroundColor: "#6c757d",
-            color: "white",
-            border: "none",
-            borderRadius: "4px",
-            cursor: "pointer",
+            marginBottom: "24px",
+            padding: "28px",
+            borderRadius: "24px",
+            border: `1px solid ${palette.border}`,
+            background: `linear-gradient(135deg, ${palette.cardBg} 0%, ${palette.cardSoft} 100%)`,
+            boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
           }}
         >
-          ← Back to rooms
-        </button>
-      </div>
-
-      <div
-        style={{
-          padding: "20px",
-          border: "1px solid #ddd",
-          borderRadius: "4px",
-          backgroundColor: "#fff",
-        }}
-      >
-        <h1 style={{ margin: "0 0 10px 0" }}>{room.name}</h1>
-
-        <div style={{ marginBottom: "15px" }}>
-          <span
+          <div
             style={{
-              display: "inline-block",
-              padding: "4px 8px",
-              backgroundColor:
-                room.visibility === "public" ? "#d4edda" : "#f8d7da",
-              color: room.visibility === "public" ? "#155724" : "#721c24",
-              borderRadius: "4px",
-              fontSize: "0.9em",
-              fontWeight: "bold",
+              display: "flex",
+              justifyContent: "space-between",
+              gap: "20px",
+              flexWrap: "wrap",
+              alignItems: "flex-start",
             }}
           >
-            {room.visibility}
-          </span>
-        </div>
+            <div style={{ flex: 1, minWidth: "280px" }}>
+              <div
+                style={{
+                  display: "inline-flex",
+                  padding: "6px 12px",
+                  borderRadius: "999px",
+                  backgroundColor:
+                    room.visibility === "public"
+                      ? "rgba(34, 199, 169, 0.15)"
+                      : "rgba(255, 107, 129, 0.15)",
+                  color:
+                    room.visibility === "public"
+                      ? palette.secondary
+                      : palette.danger,
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  marginBottom: "14px",
+                  border: `1px solid ${palette.border}`,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.04em",
+                }}
+              >
+                {room.visibility} room
+              </div>
 
-        {room.description && (
-          <div style={{ marginBottom: "15px" }}>
-            <h3 style={{ margin: "0 0 5px 0", color: "#333" }}>Description</h3>
-            <p style={{ margin: 0, color: "#555", lineHeight: "1.5" }}>
-              {room.description}
-            </p>
+              <h1
+                style={{
+                  margin: 0,
+                  fontSize: "44px",
+                  lineHeight: 1,
+                  letterSpacing: "-1px",
+                  color: palette.text,
+                }}
+              >
+                {room.name}
+              </h1>
+
+              <p
+                style={{
+                  margin: "14px 0 0",
+                  color: room.description
+                    ? palette.textSoft
+                    : palette.textMuted,
+                  fontSize: "16px",
+                  maxWidth: "720px",
+                  lineHeight: 1.6,
+                }}
+              >
+                {room.description ||
+                  "This room does not have a description yet."}
+              </p>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(2, minmax(120px, 1fr))",
+                gap: "12px",
+                minWidth: "280px",
+              }}
+            >
+              <StatCard label="Members" value={room.member_count} />
+              <StatCard label="Joined" value={room.joined ? "Yes" : "No"} />
+            </div>
           </div>
-        )}
+        </header>
 
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: "15px",
+            gridTemplateColumns: "340px minmax(0, 1fr)",
+            gap: "24px",
+            alignItems: "start",
           }}
         >
-          <div>
-            <h3 style={{ margin: "0 0 5px 0", color: "#333" }}>Owner</h3>
-            <p style={{ margin: 0, color: "#555" }}>{room.owner_username}</p>
-          </div>
+          <aside
+            style={{
+              position: "sticky",
+              top: "20px",
+              display: "grid",
+              gap: "20px",
+            }}
+          >
+            <Panel>
+              <h2 style={panelTitleStyle}>Room details</h2>
+              <div style={{ display: "grid", gap: "12px" }}>
+                <InfoRow label="Owner" value={room.owner_username} />
+                <InfoRow
+                  label="Your role"
+                  value={room.my_role ? room.my_role : "Not a member"}
+                />
+                <InfoRow
+                  label="Created"
+                  value={new Date(room.created_at).toLocaleDateString()}
+                />
+                <InfoRow
+                  label="Visibility"
+                  value={room.visibility}
+                  tone={room.visibility === "public" ? "success" : "danger"}
+                />
+              </div>
+            </Panel>
 
-          <div>
-            <h3 style={{ margin: "0 0 5px 0", color: "#333" }}>Members</h3>
-            <p style={{ margin: 0, color: "#555" }}>
-              {room.member_count} member{room.member_count !== 1 ? "s" : ""}
-            </p>
-          </div>
+            <Panel>
+              <h2 style={panelTitleStyle}>Actions</h2>
 
-          <div>
-            <h3 style={{ margin: "0 0 5px 0", color: "#333" }}>Your Role</h3>
-            <p style={{ margin: 0, color: "#555" }}>
-              {room.my_role ? room.my_role : "Not a member"}
-            </p>
-          </div>
+              <div style={{ display: "grid", gap: "12px" }}>
+                {room.visibility === "public" && !room.joined && (
+                  <button
+                    onClick={handleJoin}
+                    disabled={actionLoading}
+                    style={{
+                      ...primaryButtonStyle,
+                      opacity: actionLoading ? 0.7 : 1,
+                      cursor: actionLoading ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    {actionLoading ? "Joining..." : "Join room"}
+                  </button>
+                )}
 
-          <div>
-            <h3 style={{ margin: "0 0 5px 0", color: "#333" }}>Created</h3>
-            <p style={{ margin: 0, color: "#555" }}>
-              {new Date(room.created_at).toLocaleDateString()}
-            </p>
-          </div>
-        </div>
-        <div style={{ marginTop: "20px" }}>
-          {room.visibility === "public" && !room.joined && (
-            <button
-              onClick={handleJoin}
-              disabled={actionLoading}
-              style={{
-                padding: "10px 16px",
-                backgroundColor: "#007bff",
-                color: "white",
-                border: "none",
-                borderRadius: "4px",
-                cursor: actionLoading ? "not-allowed" : "pointer",
-                opacity: actionLoading ? 0.6 : 1,
-                marginRight: "10px",
-              }}
-            >
-              {actionLoading ? "Joining..." : "Join Room"}
-            </button>
-          )}
+                {room.joined && room.my_role !== "owner" && (
+                  <button
+                    onClick={handleLeave}
+                    disabled={actionLoading}
+                    style={{
+                      ...dangerButtonStyle,
+                      opacity: actionLoading ? 0.7 : 1,
+                      cursor: actionLoading ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    {actionLoading ? "Leaving..." : "Leave room"}
+                  </button>
+                )}
 
-          {room.joined && room.my_role !== "owner" && (
-            <button
-              onClick={handleLeave}
-              disabled={actionLoading}
-              style={{
-                padding: "10px 16px",
-                backgroundColor: "#dc3545",
-                color: "white",
-                border: "none",
-                borderRadius: "4px",
-                cursor: actionLoading ? "not-allowed" : "pointer",
-                opacity: actionLoading ? 0.6 : 1,
-              }}
-            >
-              {actionLoading ? "Leaving..." : "Leave Room"}
-            </button>
-          )}
+                {room.my_role === "owner" && (
+                  <div
+                    style={{
+                      padding: "12px 14px",
+                      borderRadius: "14px",
+                      border: `1px solid ${palette.border}`,
+                      backgroundColor: palette.cardSoft,
+                      color: palette.textMuted,
+                      fontSize: "14px",
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    Owner cannot leave own room.
+                  </div>
+                )}
 
-          {room.my_role === "owner" && (
-            <p style={{ marginTop: "10px", color: "#666" }}>
-              Owner cannot leave own room.
-            </p>
-          )}
+                <button
+                  onClick={() => navigate("/rooms")}
+                  style={secondaryButtonStyle}
+                >
+                  Back to rooms
+                </button>
+              </div>
+            </Panel>
+          </aside>
+
+          <main style={{ display: "grid", gap: "24px" }}>
+            <Panel>
+              <div
+                style={{
+                  marginBottom: "18px",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: "12px",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                }}
+              >
+                <div>
+                  <h2
+                    style={{ margin: 0, fontSize: "26px", color: palette.text }}
+                  >
+                    Chat
+                  </h2>
+                  <p
+                    style={{
+                      margin: "8px 0 0",
+                      color: palette.textMuted,
+                      fontSize: "14px",
+                    }}
+                  >
+                    Messages UI placeholder for the next step.
+                  </p>
+                </div>
+
+                <MetaPill tone={room.joined ? "success" : "default"}>
+                  {room.joined ? "Ready to chat" : "Join to participate"}
+                </MetaPill>
+              </div>
+
+              <div
+                style={{
+                  minHeight: "360px",
+                  borderRadius: "22px",
+                  border: `1px dashed ${palette.border}`,
+                  background: `linear-gradient(180deg, ${palette.cardSoft} 0%, ${palette.cardBg} 100%)`,
+                  padding: "24px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: palette.textMuted,
+                  textAlign: "center",
+                  lineHeight: 1.6,
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: "42px", marginBottom: "12px" }}>
+                    💬
+                  </div>
+                  <div style={{ fontSize: "18px", color: palette.textSoft }}>
+                    Messages will appear here
+                  </div>
+                  <div style={{ marginTop: "8px", fontSize: "14px" }}>
+                    This room page is ready for the next step: real chat
+                    messages.
+                  </div>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  marginTop: "18px",
+                  display: "grid",
+                  gridTemplateColumns: "minmax(0, 1fr) auto",
+                  gap: "12px",
+                }}
+              >
+                <input
+                  type="text"
+                  placeholder="Type a message..."
+                  disabled
+                  style={inputStyle}
+                />
+                <button
+                  type="button"
+                  disabled
+                  style={{
+                    ...secondaryButtonStyle,
+                    minWidth: "120px",
+                    opacity: 0.6,
+                    cursor: "not-allowed",
+                  }}
+                >
+                  Send
+                </button>
+              </div>
+            </Panel>
+          </main>
         </div>
       </div>
+    </PageShell>
+  );
+}
+
+function PageShell({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        background: `radial-gradient(circle at top, ${palette.pageGlow} 0%, ${palette.pageBg} 45%)`,
+        color: palette.text,
+        padding: "32px 20px 48px",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function TopBar({ onBack }: { onBack: () => void }) {
+  return (
+    <div style={{ marginBottom: "20px" }}>
+      <button onClick={onBack} style={secondaryButtonStyle}>
+        ← Back to rooms
+      </button>
     </div>
   );
 }

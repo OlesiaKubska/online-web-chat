@@ -7,6 +7,10 @@ import {
   joinRoom,
 } from "../lib/roomsApi";
 import type { Room, CreateRoomPayload } from "../types/room";
+import { palette, inputStyle, roomGridStyle } from "../styles/roomsTheme";
+import SectionShell from "../components/rooms/SectionShell";
+import EmptyState from "../components/rooms/EmptyState";
+import RoomCard from "../components/rooms/RoomCard";
 
 export default function RoomsPage() {
   const navigate = useNavigate();
@@ -16,6 +20,7 @@ export default function RoomsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [searchTerm, setSearchTerm] = useState("");
   const [formName, setFormName] = useState("");
   const [formDescription, setFormDescription] = useState("");
   const [formVisibility, setFormVisibility] = useState<"public" | "private">(
@@ -24,14 +29,16 @@ export default function RoomsPage() {
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const fetchRooms = useCallback(async () => {
+  const fetchRooms = useCallback(async (search = "") => {
     try {
       setLoading(true);
       setError(null);
+
       const [publicData, myData] = await Promise.all([
-        getPublicRooms(),
+        getPublicRooms(search),
         getMyRooms(),
       ]);
+
       setPublicRooms(publicData);
       setMyRooms(myData);
     } catch (err) {
@@ -65,9 +72,9 @@ export default function RoomsPage() {
 
       const newRoom = await createRoom(payload);
 
-      setFormError(null);
       setFormName("");
       setFormDescription("");
+      setFormVisibility("public");
 
       navigate(`/rooms/${newRoom.id}`);
     } catch (err) {
@@ -83,268 +90,385 @@ export default function RoomsPage() {
     try {
       setError(null);
       await joinRoom(roomId);
-      await fetchRooms();
+      await fetchRooms(searchTerm);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to join room");
     }
   };
 
-  if (loading) {
-    return <div style={{ padding: "20px" }}>Loading rooms...</div>;
-  }
+  const handleSearchSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await fetchRooms(searchTerm);
+  };
 
   const filteredPublicRooms = publicRooms.filter((room) => !room.joined);
 
-  return (
-    <div style={{ padding: "20px", maxWidth: "1000px", margin: "0 auto" }}>
-      <h1>Rooms</h1>
-
-      {error && (
-        <div
-          style={{
-            padding: "10px",
-            marginBottom: "20px",
-            backgroundColor: "#fee",
-            border: "1px solid #fcc",
-            borderRadius: "4px",
-            color: "#c33",
-          }}
-        >
-          {error}
-        </div>
-      )}
-
+  if (loading) {
+    return (
       <div
         style={{
-          marginBottom: "40px",
-          padding: "20px",
-          border: "1px solid #ddd",
-          borderRadius: "4px",
-          backgroundColor: "#f9f9f9",
+          minHeight: "100vh",
+          background: `radial-gradient(circle at top, ${palette.pageGlow} 0%, ${palette.pageBg} 45%)`,
+          color: palette.text,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: "18px",
         }}
       >
-        <h2>Create New Room</h2>
-        <form onSubmit={handleCreateRoom}>
-          <div style={{ marginBottom: "10px" }}>
-            <label style={{ display: "block", marginBottom: "5px" }}>
-              Room Name
-            </label>
-            <input
-              type="text"
-              value={formName}
-              onChange={(e) => setFormName(e.target.value)}
-              disabled={formLoading}
-              style={{
-                padding: "8px",
-                width: "100%",
-                boxSizing: "border-box",
-              }}
-            />
-          </div>
+        Loading rooms...
+      </div>
+    );
+  }
 
-          <div style={{ marginBottom: "10px" }}>
-            <label style={{ display: "block", marginBottom: "5px" }}>
-              Description (optional)
-            </label>
-            <textarea
-              value={formDescription}
-              onChange={(e) => setFormDescription(e.target.value)}
-              disabled={formLoading}
-              style={{
-                padding: "8px",
-                width: "100%",
-                boxSizing: "border-box",
-                minHeight: "80px",
-              }}
-            />
-          </div>
-
-          <div style={{ marginBottom: "15px" }}>
-            <label style={{ display: "block", marginBottom: "5px" }}>
-              Visibility
-            </label>
-            <select
-              value={formVisibility}
-              onChange={(e) =>
-                setFormVisibility(e.target.value as "public" | "private")
-              }
-              disabled={formLoading}
-              style={{ padding: "8px", width: "100%", boxSizing: "border-box" }}
-            >
-              <option value="public">Public</option>
-              <option value="private">Private</option>
-            </select>
-          </div>
-
-          {formError && (
-            <div
-              style={{
-                padding: "10px",
-                marginBottom: "10px",
-                backgroundColor: "#fee",
-                border: "1px solid #fcc",
-                borderRadius: "4px",
-                color: "#c33",
-              }}
-            >
-              {formError}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={formLoading}
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        background: `radial-gradient(circle at top, ${palette.pageGlow} 0%, ${palette.pageBg} 45%)`,
+        color: palette.text,
+        padding: "32px 20px 48px",
+      }}
+    >
+      <div style={{ maxWidth: "1280px", margin: "0 auto" }}>
+        <header
+          style={{
+            marginBottom: "28px",
+            padding: "28px",
+            borderRadius: "24px",
+            border: `1px solid ${palette.border}`,
+            background: `linear-gradient(135deg, ${palette.cardBg} 0%, ${palette.cardSoft} 100%)`,
+            boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
+          }}
+        >
+          <div
             style={{
-              padding: "10px 20px",
-              backgroundColor: "#007bff",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: formLoading ? "not-allowed" : "pointer",
-              opacity: formLoading ? 0.6 : 1,
+              display: "flex",
+              justifyContent: "space-between",
+              gap: "20px",
+              flexWrap: "wrap",
+              alignItems: "center",
             }}
           >
-            {formLoading ? "Creating..." : "Create Room"}
-          </button>
-        </form>
-      </div>
+            <div>
+              <div
+                style={{
+                  display: "inline-flex",
+                  padding: "6px 12px",
+                  borderRadius: "999px",
+                  backgroundColor: palette.accentSoft,
+                  color: "#c9bcff",
+                  fontSize: "13px",
+                  marginBottom: "14px",
+                  border: `1px solid ${palette.border}`,
+                }}
+              >
+                Rooms workspace
+              </div>
 
-      <div style={{ marginBottom: "40px" }}>
-        <h2>My Rooms ({myRooms.length})</h2>
-        {myRooms.length === 0 ? (
-          <p style={{ color: "#666" }}>
-            You are not a member of any rooms yet.
-          </p>
-        ) : (
-          <div>
-            {myRooms.map((room) => (
-              <RoomCard key={room.id} room={room} onJoin={handleJoinRoom} />
-            ))}
+              <h1
+                style={{
+                  margin: 0,
+                  fontSize: "48px",
+                  lineHeight: 1,
+                  letterSpacing: "-1px",
+                }}
+              >
+                Rooms
+              </h1>
+
+              <p
+                style={{
+                  margin: "12px 0 0",
+                  color: palette.textSoft,
+                  fontSize: "16px",
+                  maxWidth: "720px",
+                }}
+              >
+                Create private or public spaces, browse available rooms, and
+                jump into the one you want to open.
+              </p>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(2, minmax(120px, 1fr))",
+                gap: "12px",
+                minWidth: "260px",
+              }}
+            >
+              <StatCard label="My rooms" value={myRooms.length} />
+              <StatCard
+                label="Public rooms"
+                value={filteredPublicRooms.length}
+              />
+            </div>
+          </div>
+        </header>
+
+        {error && (
+          <div
+            style={{
+              marginBottom: "20px",
+              padding: "14px 16px",
+              borderRadius: "16px",
+              border: `1px solid ${palette.danger}`,
+              backgroundColor: palette.dangerSoft,
+              color: "#ffd5db",
+            }}
+          >
+            {error}
           </div>
         )}
-      </div>
 
-      <div>
-        <h2>Public Rooms ({filteredPublicRooms.length})</h2>
-        {filteredPublicRooms.length === 0 ? (
-          <p style={{ color: "#666" }}>No public rooms available.</p>
-        ) : (
-          <div>
-            {filteredPublicRooms.map((room) => (
-              <RoomCard key={room.id} room={room} onJoin={handleJoinRoom} />
-            ))}
-          </div>
-        )}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "360px minmax(0, 1fr)",
+            gap: "24px",
+            alignItems: "start",
+          }}
+        >
+          <aside
+            style={{
+              position: "sticky",
+              top: "20px",
+              display: "grid",
+              gap: "20px",
+            }}
+          >
+            <section
+              style={{
+                borderRadius: "24px",
+                border: `1px solid ${palette.border}`,
+                backgroundColor: palette.cardBg,
+                padding: "22px",
+                boxShadow: "0 12px 30px rgba(0,0,0,0.2)",
+              }}
+            >
+              <div style={{ marginBottom: "18px" }}>
+                <h2 style={{ margin: 0, fontSize: "22px" }}>Create room</h2>
+                <p
+                  style={{
+                    margin: "8px 0 0",
+                    color: palette.textMuted,
+                    fontSize: "14px",
+                  }}
+                >
+                  Start a new place for chat, collaboration, or experiments.
+                </p>
+              </div>
+
+              <form onSubmit={handleCreateRoom}>
+                <FieldLabel>Room name</FieldLabel>
+                <input
+                  type="text"
+                  value={formName}
+                  onChange={(e) => setFormName(e.target.value)}
+                  disabled={formLoading}
+                  style={inputStyle}
+                  placeholder="e.g. General, Design Lab"
+                />
+
+                <FieldLabel>Description</FieldLabel>
+                <textarea
+                  value={formDescription}
+                  onChange={(e) => setFormDescription(e.target.value)}
+                  disabled={formLoading}
+                  style={{
+                    ...inputStyle,
+                    minHeight: "100px",
+                    resize: "vertical",
+                  }}
+                  placeholder="What is this room about?"
+                />
+
+                <FieldLabel>Visibility</FieldLabel>
+                <select
+                  value={formVisibility}
+                  onChange={(e) =>
+                    setFormVisibility(e.target.value as "public" | "private")
+                  }
+                  disabled={formLoading}
+                  style={inputStyle}
+                >
+                  <option value="public">Public</option>
+                  <option value="private">Private</option>
+                </select>
+
+                {formError && (
+                  <div
+                    style={{
+                      marginTop: "12px",
+                      padding: "12px",
+                      borderRadius: "12px",
+                      border: `1px solid ${palette.danger}`,
+                      backgroundColor: palette.dangerSoft,
+                      color: "#ffd5db",
+                      fontSize: "14px",
+                    }}
+                  >
+                    {formError}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={formLoading}
+                  style={{
+                    marginTop: "16px",
+                    width: "100%",
+                    padding: "12px 16px",
+                    border: "none",
+                    borderRadius: "14px",
+                    background: `linear-gradient(135deg, ${palette.accent} 0%, ${palette.accentHover} 100%)`,
+                    color: palette.white,
+                    fontWeight: 600,
+                    cursor: formLoading ? "not-allowed" : "pointer",
+                    opacity: formLoading ? 0.7 : 1,
+                    boxShadow: "0 10px 20px rgba(124, 92, 255, 0.25)",
+                  }}
+                >
+                  {formLoading ? "Creating..." : "Create room"}
+                </button>
+              </form>
+            </section>
+
+            <section
+              style={{
+                borderRadius: "24px",
+                border: `1px solid ${palette.border}`,
+                backgroundColor: palette.cardBg,
+                padding: "22px",
+                boxShadow: "0 12px 30px rgba(0,0,0,0.2)",
+              }}
+            >
+              <div style={{ marginBottom: "18px" }}>
+                <h2 style={{ margin: 0, fontSize: "22px" }}>Discover rooms</h2>
+                <p
+                  style={{
+                    margin: "8px 0 0",
+                    color: palette.textMuted,
+                    fontSize: "14px",
+                  }}
+                >
+                  Search by room name or description.
+                </p>
+              </div>
+
+              <form onSubmit={handleSearchSubmit}>
+                <input
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search public rooms..."
+                  style={inputStyle}
+                />
+
+                <button
+                  type="submit"
+                  style={{
+                    marginTop: "12px",
+                    width: "100%",
+                    padding: "11px 14px",
+                    borderRadius: "14px",
+                    border: `1px solid ${palette.border}`,
+                    backgroundColor: palette.cardSoft,
+                    color: palette.text,
+                    cursor: "pointer",
+                    fontWeight: 600,
+                  }}
+                >
+                  Search
+                </button>
+              </form>
+            </section>
+          </aside>
+
+          <main style={{ display: "grid", gap: "24px" }}>
+            <SectionShell
+              title="My rooms"
+              subtitle="Rooms where you already belong."
+              count={myRooms.length}
+            >
+              {myRooms.length === 0 ? (
+                <EmptyState text="You are not a member of any rooms yet." />
+              ) : (
+                <div style={roomGridStyle}>
+                  {myRooms.map((room) => (
+                    <RoomCard
+                      key={room.id}
+                      room={room}
+                      onJoin={handleJoinRoom}
+                    />
+                  ))}
+                </div>
+              )}
+            </SectionShell>
+
+            <SectionShell
+              title="Public rooms"
+              subtitle="Open spaces you can explore and join."
+              count={filteredPublicRooms.length}
+            >
+              {filteredPublicRooms.length === 0 ? (
+                <EmptyState text="No public rooms available right now." />
+              ) : (
+                <div style={roomGridStyle}>
+                  {filteredPublicRooms.map((room) => (
+                    <RoomCard
+                      key={room.id}
+                      room={room}
+                      onJoin={handleJoinRoom}
+                    />
+                  ))}
+                </div>
+              )}
+            </SectionShell>
+          </main>
+        </div>
       </div>
     </div>
   );
 }
 
-interface RoomCardProps {
-  room: Room;
-  onJoin: (id: number) => Promise<void>;
-}
-
-function RoomCard({ room, onJoin }: RoomCardProps) {
-  const [joining, setJoining] = useState(false);
-  const navigate = useNavigate();
-
-  const handleJoinClick = async () => {
-    try {
-      setJoining(true);
-      await onJoin(room.id);
-    } finally {
-      setJoining(false);
-    }
-  };
-
+function StatCard({ label, value }: { label: string; value: number }) {
   return (
     <div
       style={{
-        marginBottom: "15px",
-        padding: "15px",
-        border: "1px solid #ddd",
-        borderRadius: "4px",
-        backgroundColor: "#fff",
+        padding: "16px",
+        borderRadius: "18px",
+        backgroundColor: palette.cardSoft,
+        border: `1px solid ${palette.border}`,
       }}
     >
       <div
         style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
+          color: palette.textMuted,
+          fontSize: "13px",
+          marginBottom: "6px",
         }}
       >
-        <div style={{ flex: 1 }}>
-          <h3 style={{ margin: "0 0 5px 0" }}>
-            {room.name}{" "}
-            <span style={{ fontSize: "0.85em", color: "#999" }}>
-              ({room.visibility})
-            </span>
-          </h3>
-
-          {room.description && (
-            <p style={{ margin: "5px 0", color: "#555" }}>{room.description}</p>
-          )}
-
-          <div style={{ fontSize: "0.9em", color: "#666", marginTop: "8px" }}>
-            <span style={{ marginRight: "15px" }}>
-              👤 {room.member_count} member{room.member_count !== 1 ? "s" : ""}
-            </span>
-
-            <span style={{ marginRight: "15px" }}>
-              Owner: {room.owner_username}
-            </span>
-
-            {room.joined && (
-              <span style={{ marginRight: "15px", color: "#198754" }}>
-                Joined
-              </span>
-            )}
-
-            {room.my_role && (
-              <span style={{ marginRight: "15px", color: "#0066cc" }}>
-                Your role: {room.my_role}
-              </span>
-            )}
-          </div>
-        </div>
-
-        <div style={{ marginLeft: "20px", whiteSpace: "nowrap" }}>
-          <button
-            onClick={() => navigate(`/rooms/${room.id}`)}
-            style={{
-              padding: "8px 12px",
-              marginRight: "10px",
-              backgroundColor: "#28a745",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer",
-            }}
-          >
-            Open
-          </button>
-
-          {room.visibility === "public" && !room.joined && (
-            <button
-              onClick={handleJoinClick}
-              disabled={joining}
-              style={{
-                padding: "8px 12px",
-                backgroundColor: "#007bff",
-                color: "white",
-                border: "none",
-                borderRadius: "4px",
-                cursor: joining ? "not-allowed" : "pointer",
-                opacity: joining ? 0.6 : 1,
-              }}
-            >
-              {joining ? "Joining..." : "Join"}
-            </button>
-          )}
-        </div>
+        {label}
+      </div>
+      <div style={{ fontSize: "28px", fontWeight: 700, color: palette.text }}>
+        {value}
       </div>
     </div>
+  );
+}
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <label
+      style={{
+        display: "block",
+        color: palette.textSoft,
+        fontSize: "14px",
+        fontWeight: 500,
+      }}
+    >
+      {children}
+    </label>
   );
 }
