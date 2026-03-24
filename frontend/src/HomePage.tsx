@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getCurrentUser, getPublicRooms, getMyRooms } from "./lib/roomsApi";
 
 interface User {
   id: number;
@@ -31,25 +30,6 @@ const HomePage = () => {
     };
 
     loadUser();
-  }, []);
-
-  useEffect(() => {
-    async function run() {
-      try {
-        const me = await getCurrentUser();
-        console.log("me", me);
-
-        const publicRooms = await getPublicRooms();
-        console.log("publicRooms", publicRooms);
-
-        const myRooms = await getMyRooms();
-        console.log("myRooms", myRooms);
-      } catch (error) {
-        console.error("API test failed:", error);
-      }
-    }
-
-    run();
   }, []);
 
   const handleLogout = async () => {
@@ -84,7 +64,6 @@ const HomePage = () => {
       ) : (
         <p>Not logged in</p>
       )}
-      <div>API test page</div>
     </div>
   );
 };
