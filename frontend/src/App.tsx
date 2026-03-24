@@ -4,6 +4,7 @@ import RegisterPage from "./RegisterPage";
 import LoginPage from "./LoginPage";
 import ProtectedRoute from "./ProtectedRoute";
 import RoomsPage from "./pages/RoomsPage";
+import RoomDetailPage from "./pages/RoomDetailPage";
 
 function App() {
   return (
@@ -23,6 +24,14 @@ function App() {
         element={
           <ProtectedRoute>
             <RoomsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/rooms/:id"
+        element={
+          <ProtectedRoute>
+            <RoomDetailPage />
           </ProtectedRoute>
         }
       />
