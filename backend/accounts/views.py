@@ -22,8 +22,7 @@ class LoginView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
 
-    @staticmethod
-    def post(request):
+    def post(self, request):
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -45,8 +44,7 @@ class LogoutView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
 
-    @staticmethod
-    def post(request):
+    def post(self, request):
         logout(request)
         return Response({'message': 'Logout successful'}, status=status.HTTP_200_OK)
 
@@ -56,7 +54,8 @@ def me_view(request):
     if not request.user.is_authenticated:
         return Response(
             {'detail': 'Authentication required.'},
-            status=status.HTTP_401_UNAUTHORIZED)
+            status=status.HTTP_401_UNAUTHORIZED
+        )
 
     return Response({
         'id': request.user.id,
