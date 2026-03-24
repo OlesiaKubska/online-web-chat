@@ -1,6 +1,9 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 const LoginPage = () => {
+  const navigate = useNavigate();
+
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
@@ -27,6 +30,10 @@ const LoginPage = () => {
         setMessage("Login successful!");
         setUsername("");
         setPassword("");
+
+        setTimeout(() => {
+          navigate("/");
+        }, 300);
       } else {
         setIsSuccess(false);
 

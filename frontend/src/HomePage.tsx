@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 interface User {
   id: number;
@@ -7,6 +8,7 @@ interface User {
 }
 
 const HomePage = () => {
+  const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
@@ -37,8 +39,10 @@ const HomePage = () => {
         credentials: "include",
       });
       setUser(null);
+      navigate("/login");
     } catch {
       setUser(null);
+      navigate("/login");
     }
   };
 

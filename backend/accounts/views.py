@@ -1,50 +1,62 @@
 from django.contrib.auth import login, logout
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
+
 from rest_framework import generics, status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
+from rest_framework.views import APIView
+from rest_framework.permissions import AllowAny
 
 from .serializers import RegisterSerializer
 from .login_serializers import LoginSerializer
 
-# Create your views here.
 
 @method_decorator(csrf_exempt, name='dispatch')
 class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
 
 
-@csrf_exempt
-@api_view(['POST'])
-def login_view(request):
-    serializer = LoginSerializer(data=request.data)
-    serializer.is_valid(raise_exception=True)
+@method_decorator(csrf_exempt, name='dispatch')
+class LoginView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
 
-    user = serializer.validated_data['user']
-    login(request, user)
+    @staticmethod
+    def post(request):
+        serializer = LoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-    return Response({
-        'message': 'Login successful',
-        'user': {
-            'id': user.id,
-            'username': user.username,
-            'email': user.email,
-        }
-    }, status=status.HTTP_200_OK)
+        user = serializer.validated_data['user']
+        login(request, user)
+
+        return Response({
+            'message': 'Login successful',
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+            }
+        }, status=status.HTTP_200_OK)
 
 
-@csrf_exempt
-@api_view(['POST'])
-def logout_view(request):
-    logout(request)
-    return Response({'message': 'Logout successful'}, status=status.HTTP_200_OK)
+@method_decorator(csrf_exempt, name='dispatch')
+class LogoutView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    @staticmethod
+    def post(request):
+        logout(request)
+        return Response({'message': 'Logout successful'}, status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])
 def me_view(request):
     if not request.user.is_authenticated:
-        return Response({'detail': 'Authentication required.'}, status=status.HTTP_401_UNAUTHORIZED)
+        return Response(
+            {'detail': 'Authentication required.'},
+            status=status.HTTP_401_UNAUTHORIZED)
 
     return Response({
         'id': request.user.id,
