@@ -1,16 +1,28 @@
 from django.db.models import Q
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
+from django.utils.dateparse import parse_datetime
 
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, NotFound
 
-from .models import Room, RoomMembership
-from .serializers import RoomSerializer, CreateRoomSerializer
+from .models import Room, RoomMembership, Message
+from .serializers import (
+    RoomSerializer,
+    CreateRoomSerializer,
+    MessageSerializer,
+    CreateMessageSerializer,
+    UpdateMessageSerializer)
 from core.authentication import CsrfExemptSessionAuthentication
+
+
+def ensure_room_member(room, user):
+    is_member = room.memberships.filter(user=user).exists()
+    if not is_member:
+        raise PermissionDenied('You are not a member of this room.')
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -140,3 +152,85 @@ class LeaveRoomView(APIView):
         membership.delete()
 
         return Response({'detail': 'Left room successfully.'}, status=status.HTTP_200_OK)
+
+
+class RoomMessageListCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [CsrfExemptSessionAuthentication]
+
+    def get_room(self, pk):
+        try:
+            return Room.objects.get(pk=pk)
+        except Room.DoesNotExist:
+            raise NotFound('Room not found.')
+
+    def get(self, request, pk):
+        room = self.get_room(pk)
+        ensure_room_member(room, request.user)
+
+        messages = Message.objects.filter(room=room).select_related(
+            'user',
+            'reply_to',
+            'reply_to__user',
+        )
+
+        cursor = request.query_params.get('cursor')
+        if cursor:
+            parsed_cursor = parse_datetime(cursor)
+            if parsed_cursor:
+                messages = messages.filter(created_at__lt=parsed_cursor)
+
+        messages = messages.order_by('-created_at')[:20]
+
+        serializer = MessageSerializer(messages, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request, pk):
+        room = self.get_room(pk)
+        ensure_room_member(room, request.user)
+
+        serializer = CreateMessageSerializer(
+            data=request.data,
+            context={
+                'request': request,
+                'room': room,
+            },
+        )
+        serializer.is_valid(raise_exception=True)
+        message = serializer.save()
+
+        output_serializer = MessageSerializer(message)
+        return Response(output_serializer.data, status=status.HTTP_201_CREATED)
+
+
+class MessageDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [CsrfExemptSessionAuthentication]
+
+    def get_message(self, pk):
+        try:
+            return Message.objects.select_related('room', 'user').get(pk=pk)
+        except Message.DoesNotExist:
+            raise NotFound('Message not found.')
+
+    def patch(self, request, pk):
+        message = self.get_message(pk)
+
+        if message.user_id != request.user.id:
+            raise PermissionDenied('You can edit only your own messages.')
+
+        serializer = UpdateMessageSerializer(message, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        updated_message = serializer.save()
+
+        output_serializer = MessageSerializer(updated_message)
+        return Response(output_serializer.data, status=status.HTTP_200_OK)
+
+    def delete(self, request, pk):
+        message = self.get_message(pk)
+
+        if message.user_id != request.user.id:
+            raise PermissionDenied('You can delete only your own messages.')
+
+        message.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)

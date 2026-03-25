@@ -1,6 +1,6 @@
 from django.db import transaction
 from rest_framework import serializers
-from .models import Room, RoomMembership
+from .models import Room, RoomMembership, Message
 
 
 class RoomSerializer(serializers.ModelSerializer):
@@ -87,3 +87,89 @@ class CreateRoomSerializer(serializers.ModelSerializer):
         )
 
         return room
+
+
+class MessageSerializer(serializers.ModelSerializer):
+    user_username = serializers.CharField(source='user.username', read_only=True)
+    reply_to_message = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Message
+        fields = [
+            'id',
+            'room',
+            'user',
+            'user_username',
+            'content',
+            'reply_to',
+            'reply_to_message',
+            'edited',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = [
+            'id',
+            'room',
+            'user',
+            'user_username',
+            'edited',
+            'created_at',
+            'updated_at',
+        ]
+
+    def get_reply_to_message(self, obj):
+        if not obj.reply_to:
+            return None
+
+        return {
+            'id': obj.reply_to.id,
+            'content': obj.reply_to.content,
+            'user': obj.reply_to.user_id,
+            'user_username': obj.reply_to.user.username,
+        }
+
+
+class CreateMessageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Message
+        fields = ['content', 'reply_to']
+
+    def validate_content(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError('Message content cannot be empty.')
+        return value
+
+    def validate_reply_to(self, value):
+        room = self.context.get('room')
+        if value and value.room_id != room.id:
+            raise serializers.ValidationError('Reply target must belong to the same room.')
+        return value
+
+    def create(self, validated_data):
+        user = self.context['request'].user
+        room = self.context['room']
+
+        return Message.objects.create(
+            room=room,
+            user=user,
+            **validated_data,
+        )
+
+
+class UpdateMessageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Message
+        fields = ['content']
+
+    def validate_content(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError('Message content cannot be empty.')
+        return value
+
+    def update(self, instance, validated_data):
+        instance.content = validated_data['content']
+        instance.edited = True
+        instance.save(update_fields=['content', 'edited', 'updated_at'])
+        return instance

@@ -6,6 +6,8 @@ from .views import (
     RoomDetailView,
     JoinRoomView,
     LeaveRoomView,
+    RoomMessageListCreateView,
+    MessageDetailView,
 )
 
 urlpatterns = [
@@ -15,4 +17,6 @@ urlpatterns = [
     path('<int:pk>/', RoomDetailView.as_view(), name='room-detail'),
     path('<int:pk>/join/', JoinRoomView.as_view(), name='join-room'),
     path('<int:pk>/leave/', LeaveRoomView.as_view(), name='leave-room'),
+    path('<int:pk>/messages/', RoomMessageListCreateView.as_view(), name='room-messages'),
+    path('messages/<int:pk>/', MessageDetailView.as_view(), name='message-detail'),
 ]
