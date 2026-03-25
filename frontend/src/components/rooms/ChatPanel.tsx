@@ -21,6 +21,8 @@ export function ChatPanel({
   messagesLoading,
   messagesError,
 }: ChatPanelProps) {
+  const orderedMessages = [...messages].reverse();
+
   return (
     <Panel>
       <div
@@ -44,7 +46,7 @@ export function ChatPanel({
               fontSize: "14px",
             }}
           >
-            Messages UI placeholder for the next step.
+            {messages.length} {messages.length === 1 ? "message" : "messages"}
           </p>
         </div>
 
@@ -88,7 +90,7 @@ export function ChatPanel({
               gap: "12px",
             }}
           >
-            {[...messages].reverse().map((message) => (
+            {orderedMessages.map((message) => (
               <div
                 key={message.id}
                 style={{
@@ -179,11 +181,14 @@ export function ChatPanel({
           gap: "12px",
         }}
       >
-        <input
-          type="text"
+        <textarea
           placeholder="Type a message..."
           disabled
-          style={inputStyle}
+          style={{
+            ...inputStyle,
+            minHeight: "56px",
+            resize: "vertical",
+          }}
         />
         <button
           type="button"
