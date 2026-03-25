@@ -10,7 +10,7 @@ export const LoadingState: React.FC = () => {
         alignItems: "center",
         minHeight: "300px",
         fontSize: "16px",
-        color: palette.textSecondary,
+        color: palette.textSoft,
       }}
     >
       Loading...

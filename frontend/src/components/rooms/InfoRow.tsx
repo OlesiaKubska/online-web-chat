@@ -14,7 +14,7 @@ export const InfoRow: React.FC<InfoRowProps> = ({
 }) => {
   const toneColors = {
     default: palette.text,
-    success: palette.success,
+    success: palette.secondary,
     danger: palette.danger,
   };
 
@@ -29,9 +29,7 @@ export const InfoRow: React.FC<InfoRowProps> = ({
         borderBottom: `1px solid ${palette.border}`,
       }}
     >
-      <span style={{ fontSize: "14px", color: palette.textSecondary }}>
-        {label}
-      </span>
+      <span style={{ fontSize: "14px", color: palette.textSoft }}>{label}</span>
       <span
         style={{ fontSize: "14px", fontWeight: 600, color: toneColors[tone] }}
       >

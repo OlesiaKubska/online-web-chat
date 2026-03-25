@@ -18,7 +18,7 @@ export const StatCard: React.FC<StatCardProps> = ({ label, value }) => {
         style={{
           margin: "0 0 6px 0",
           fontSize: "12px",
-          color: palette.textSecondary,
+          color: palette.textMuted,
           textTransform: "uppercase",
           letterSpacing: "0.5px",
         }}
