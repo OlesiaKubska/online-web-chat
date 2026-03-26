@@ -1,3 +1,4 @@
+import { useRef, useEffect } from "react";
 import type { Room } from "../../types/room";
 import type { Message } from "../../types/message";
 import {
@@ -54,6 +55,11 @@ export function ChatPanel({
   onDeleteMessage,
 }: ChatPanelProps) {
   const orderedMessages = [...messages].reverse();
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   return (
     <Panel>
@@ -384,6 +390,7 @@ export function ChatPanel({
                 )}
               </div>
             ))}
+            <div ref={messagesEndRef} />
           </div>
         )}
       </div>

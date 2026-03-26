@@ -44,6 +44,7 @@ export default function RoomDetailPage() {
   const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
   const [editingMessageContent, setEditingMessageContent] = useState("");
   const [editingSaving, setEditingSaving] = useState(false);
+  const [ws, setWs] = useState<WebSocket | null>(null);
 
   useEffect(() => {
     if (!id) {
@@ -80,6 +81,52 @@ export default function RoomDetailPage() {
 
     fetchUser();
   }, []);
+
+  // WebSocket connection effect
+  useEffect(() => {
+    if (!room?.id) return;
+
+    const wsBaseUrl = import.meta.env.VITE_WS_BASE_URL || "ws://localhost:8000";
+    const wsUrl = `${wsBaseUrl}/ws/rooms/${room.id}/`;
+
+    const socket = new WebSocket(wsUrl);
+
+    socket.onopen = () => {
+      console.log(`Connected to WebSocket for room ${room.id}`);
+      setWs(socket);
+    };
+
+    socket.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === "message") {
+          setMessages((prev) => {
+            // Avoid duplicates by checking if message already exists
+            const exists = prev.some((m) => m.id === data.message.id);
+            if (exists) {
+              return prev;
+            }
+            return [data.message, ...prev];
+          });
+        }
+      } catch (err) {
+        console.error("Failed to parse WebSocket message:", err);
+      }
+    };
+
+    socket.onerror = (err) => {
+      console.error("WebSocket error:", err);
+    };
+
+    socket.onclose = () => {
+      console.log(`Disconnected from WebSocket for room ${room.id}`);
+      setWs(null);
+    };
+
+    return () => {
+      socket.close();
+    };
+  }, [room?.id]);
 
   const fetchRoom = async (roomId: number, showPageLoader = true) => {
     try {
@@ -212,11 +259,26 @@ export default function RoomDetailPage() {
     try {
       setSendingMessage(true);
       setMessagesError(null);
-      const newMessage = await sendMessage(room.id, {
-        content: trimmedContent,
-        reply_to: replyTo?.id ?? undefined,
-      });
-      setMessages((prev) => [newMessage, ...prev]);
+
+      // Try to send via WebSocket if available
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(
+          JSON.stringify({
+            action: "send_message",
+            content: trimmedContent,
+            reply_to: replyTo?.id ?? undefined,
+          }),
+        );
+        // Message will appear from WebSocket onmessage, not manually appended
+      } else {
+        // Fallback to REST if WebSocket not available
+        const newMessage = await sendMessage(room.id, {
+          content: trimmedContent,
+          reply_to: replyTo?.id ?? undefined,
+        });
+        setMessages((prev) => [newMessage, ...prev]);
+      }
+
       setMessageContent("");
       setReplyTo(null);
     } catch (err) {
