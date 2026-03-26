@@ -13,6 +13,10 @@ interface ChatPanelProps {
   messages: Message[];
   messagesLoading: boolean;
   messagesError: string | null;
+  messageContent: string;
+  onMessageChange: (content: string) => void;
+  onSendMessage: () => void;
+  sendingMessage: boolean;
 }
 
 export function ChatPanel({
@@ -20,6 +24,10 @@ export function ChatPanel({
   messages,
   messagesLoading,
   messagesError,
+  messageContent,
+  onMessageChange,
+  onSendMessage,
+  sendingMessage,
 }: ChatPanelProps) {
   const orderedMessages = [...messages].reverse();
 
@@ -130,6 +138,7 @@ export function ChatPanel({
                 <div
                   style={{
                     display: "flex",
+                    flexWrap: "wrap",
                     alignItems: "center",
                     gap: "8px",
                     marginBottom: "4px",
@@ -183,7 +192,15 @@ export function ChatPanel({
       >
         <textarea
           placeholder="Type a message..."
-          disabled
+          value={messageContent}
+          onChange={(e) => onMessageChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey && !sendingMessage) {
+              e.preventDefault();
+              onSendMessage();
+            }
+          }}
+          disabled={!room.joined || sendingMessage}
           style={{
             ...inputStyle,
             minHeight: "56px",
@@ -192,15 +209,22 @@ export function ChatPanel({
         />
         <button
           type="button"
-          disabled
+          onClick={onSendMessage}
+          disabled={!room.joined || !messageContent.trim() || sendingMessage}
           style={{
             ...secondaryButtonStyle,
             minWidth: "120px",
-            opacity: 0.6,
-            cursor: "not-allowed",
+            opacity:
+              !room.joined || !messageContent.trim() || sendingMessage
+                ? 0.6
+                : 1,
+            cursor:
+              !room.joined || !messageContent.trim() || sendingMessage
+                ? "not-allowed"
+                : "pointer",
           }}
         >
-          Send
+          {sendingMessage ? "Sending..." : "Send"}
         </button>
       </div>
     </Panel>

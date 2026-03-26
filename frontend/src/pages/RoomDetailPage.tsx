@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getRoomById, leaveRoom, joinRoom } from "../lib/roomsApi";
-import { getRoomMessages } from "../lib/messagesApi";
+import { getRoomMessages, sendMessage } from "../lib/messagesApi";
 import { ApiError } from "../lib/api";
 import type { Room } from "../types/room";
 import type { Message } from "../types/message";
@@ -25,6 +25,9 @@ export default function RoomDetailPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [messagesError, setMessagesError] = useState<string | null>(null);
+
+  const [messageContent, setMessageContent] = useState("");
+  const [sendingMessage, setSendingMessage] = useState(false);
 
   useEffect(() => {
     if (!id) {
@@ -120,6 +123,28 @@ export default function RoomDetailPage() {
     }
   };
 
+  const handleSendMessage = async () => {
+    if (!room) return;
+
+    const trimmedContent = messageContent.trim();
+    if (!trimmedContent) return;
+
+    try {
+      setSendingMessage(true);
+      const newMessage = await sendMessage(room.id, {
+        content: trimmedContent,
+      });
+      setMessages((prev) => [newMessage, ...prev]);
+      setMessageContent("");
+    } catch (err) {
+      setMessagesError(
+        err instanceof Error ? err.message : "Failed to send message",
+      );
+    } finally {
+      setSendingMessage(false);
+    }
+  };
+
   if (loading) {
     return (
       <PageShell>
@@ -182,6 +207,10 @@ export default function RoomDetailPage() {
               messages={messages}
               messagesLoading={messagesLoading}
               messagesError={messagesError}
+              messageContent={messageContent}
+              onMessageChange={setMessageContent}
+              onSendMessage={handleSendMessage}
+              sendingMessage={sendingMessage}
             />
           </main>
         </div>
