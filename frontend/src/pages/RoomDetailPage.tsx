@@ -1,7 +1,12 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getRoomById, leaveRoom, joinRoom } from "../lib/roomsApi";
-import { getRoomMessages, sendMessage } from "../lib/messagesApi";
+import {
+  getRoomById,
+  leaveRoom,
+  joinRoom,
+  getCurrentUser,
+} from "../lib/roomsApi";
+import { getRoomMessages, sendMessage, editMessage } from "../lib/messagesApi";
 import { ApiError } from "../lib/api";
 import type { Room } from "../types/room";
 import type { Message } from "../types/message";
@@ -28,6 +33,12 @@ export default function RoomDetailPage() {
 
   const [messageContent, setMessageContent] = useState("");
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [replyTo, setReplyTo] = useState<Message | null>(null);
+
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+  const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
+  const [editingMessageContent, setEditingMessageContent] = useState("");
+  const [editingSaving, setEditingSaving] = useState(false);
 
   useEffect(() => {
     if (!id) {
@@ -47,10 +58,23 @@ export default function RoomDetailPage() {
   }, [id]);
 
   useEffect(() => {
-    if (room) {
+    if (room?.id) {
       fetchMessages(room.id);
     }
-  }, [room]);
+  }, [room?.id]);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const user = await getCurrentUser();
+        setCurrentUserId(user.id);
+      } catch {
+        setCurrentUserId(null);
+      }
+    };
+
+    fetchUser();
+  }, []);
 
   const fetchRoom = async (roomId: number, showPageLoader = true) => {
     try {
@@ -123,6 +147,42 @@ export default function RoomDetailPage() {
     }
   };
 
+  const handleStartEdit = (message: Message) => {
+    setEditingMessageId(message.id);
+    setEditingMessageContent(message.content);
+    setReplyTo(null);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingMessageId(null);
+    setEditingMessageContent("");
+  };
+
+  const handleSaveEdit = async () => {
+    if (!room || editingMessageId === null) return;
+
+    const trimmedContent = editingMessageContent.trim();
+    if (!trimmedContent) return;
+
+    try {
+      setEditingSaving(true);
+      const updatedMessage = await editMessage(editingMessageId, {
+        content: trimmedContent,
+      });
+      setMessages((prev) =>
+        prev.map((m) => (m.id === updatedMessage.id ? updatedMessage : m)),
+      );
+      setEditingMessageId(null);
+      setEditingMessageContent("");
+    } catch (err) {
+      setMessagesError(
+        err instanceof Error ? err.message : "Failed to save edited message",
+      );
+    } finally {
+      setEditingSaving(false);
+    }
+  };
+
   const handleSendMessage = async () => {
     if (!room) return;
 
@@ -131,11 +191,14 @@ export default function RoomDetailPage() {
 
     try {
       setSendingMessage(true);
+      setMessagesError(null);
       const newMessage = await sendMessage(room.id, {
         content: trimmedContent,
+        reply_to: replyTo?.id ?? undefined,
       });
       setMessages((prev) => [newMessage, ...prev]);
       setMessageContent("");
+      setReplyTo(null);
     } catch (err) {
       setMessagesError(
         err instanceof Error ? err.message : "Failed to send message",
@@ -211,6 +274,17 @@ export default function RoomDetailPage() {
               onMessageChange={setMessageContent}
               onSendMessage={handleSendMessage}
               sendingMessage={sendingMessage}
+              replyTo={replyTo}
+              onReply={setReplyTo}
+              onCancelReply={() => setReplyTo(null)}
+              currentUserId={currentUserId}
+              editingMessageId={editingMessageId}
+              editingMessageContent={editingMessageContent}
+              onEditingMessageChange={setEditingMessageContent}
+              onStartEdit={handleStartEdit}
+              onCancelEdit={handleCancelEdit}
+              onSaveEdit={handleSaveEdit}
+              editingSaving={editingSaving}
             />
           </main>
         </div>

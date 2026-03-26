@@ -17,6 +17,17 @@ interface ChatPanelProps {
   onMessageChange: (content: string) => void;
   onSendMessage: () => void;
   sendingMessage: boolean;
+  replyTo: Message | null;
+  onReply: (message: Message) => void;
+  onCancelReply: () => void;
+  currentUserId: number | null;
+  editingMessageId: number | null;
+  editingMessageContent: string;
+  onEditingMessageChange: (content: string) => void;
+  onStartEdit: (message: Message) => void;
+  onCancelEdit: () => void;
+  onSaveEdit: () => void;
+  editingSaving: boolean;
 }
 
 export function ChatPanel({
@@ -28,6 +39,17 @@ export function ChatPanel({
   onMessageChange,
   onSendMessage,
   sendingMessage,
+  replyTo,
+  onReply,
+  onCancelReply,
+  currentUserId,
+  editingMessageId,
+  editingMessageContent,
+  onEditingMessageChange,
+  onStartEdit,
+  onCancelEdit,
+  onSaveEdit,
+  editingSaving,
 }: ChatPanelProps) {
   const orderedMessages = [...messages].reverse();
 
@@ -75,6 +97,48 @@ export function ChatPanel({
           gap: "16px",
         }}
       >
+        {replyTo && (
+          <div
+            style={{
+              padding: "10px 12px",
+              borderRadius: "10px",
+              backgroundColor: "rgba(34, 199, 169, 0.1)",
+              border: `1px solid ${palette.secondary}`,
+              color: palette.textSoft,
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: "8px",
+            }}
+          >
+            <div>
+              Replying to <strong>{replyTo.user_username}</strong>:
+              <div
+                style={{
+                  marginTop: "4px",
+                  whiteSpace: "pre-wrap",
+                  lineHeight: 1.4,
+                }}
+              >
+                {replyTo.content.length > 120
+                  ? `${replyTo.content.substring(0, 120)}...`
+                  : replyTo.content}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onCancelReply}
+              style={{
+                ...secondaryButtonStyle,
+                minWidth: "auto",
+                padding: "6px 10px",
+                opacity: 0.8,
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        )}
         {messagesLoading && (
           <div style={{ textAlign: "center", color: palette.textMuted }}>
             Loading messages...
@@ -108,6 +172,58 @@ export function ChatPanel({
                   border: `1px solid ${palette.border}`,
                 }}
               >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "flex-end",
+                    gap: "8px",
+                    marginBottom: "8px",
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => onReply(message)}
+                    disabled={!room.joined}
+                    style={{
+                      ...secondaryButtonStyle,
+                      fontSize: "12px",
+                      padding: "4px 8px",
+                      minWidth: "auto",
+                      opacity: !room.joined ? 0.6 : 1,
+                      cursor: !room.joined ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    Reply
+                  </button>
+                  {currentUserId === message.user && (
+                    <button
+                      type="button"
+                      onClick={() => onStartEdit(message)}
+                      disabled={
+                        editingMessageId !== null &&
+                        editingMessageId !== message.id
+                      }
+                      style={{
+                        ...secondaryButtonStyle,
+                        fontSize: "12px",
+                        padding: "4px 8px",
+                        minWidth: "auto",
+                        opacity:
+                          editingMessageId !== null &&
+                          editingMessageId !== message.id
+                            ? 0.6
+                            : 1,
+                        cursor:
+                          editingMessageId !== null &&
+                          editingMessageId !== message.id
+                            ? "not-allowed"
+                            : "pointer",
+                      }}
+                    >
+                      Edit
+                    </button>
+                  )}
+                </div>
                 {message.reply_to_message && (
                   <div
                     style={{
@@ -167,15 +283,72 @@ export function ChatPanel({
                     </span>
                   )}
                 </div>
-                <div
-                  style={{
-                    color: palette.textSoft,
-                    whiteSpace: "pre-wrap",
-                    lineHeight: 1.5,
-                  }}
-                >
-                  {message.content}
-                </div>
+                {editingMessageId === message.id ? (
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "8px",
+                    }}
+                  >
+                    <textarea
+                      value={editingMessageContent}
+                      onChange={(e) => onEditingMessageChange(e.target.value)}
+                      rows={3}
+                      style={{
+                        ...inputStyle,
+                        minHeight: "90px",
+                        resize: "vertical",
+                      }}
+                    />
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <button
+                        type="button"
+                        onClick={onSaveEdit}
+                        disabled={
+                          !editingMessageContent.trim() || editingSaving
+                        }
+                        style={{
+                          ...secondaryButtonStyle,
+                          minWidth: "80px",
+                          opacity:
+                            !editingMessageContent.trim() || editingSaving
+                              ? 0.6
+                              : 1,
+                          cursor:
+                            !editingMessageContent.trim() || editingSaving
+                              ? "not-allowed"
+                              : "pointer",
+                        }}
+                      >
+                        {editingSaving ? "Saving..." : "Save"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={onCancelEdit}
+                        disabled={editingSaving}
+                        style={{
+                          ...secondaryButtonStyle,
+                          minWidth: "80px",
+                          opacity: editingSaving ? 0.6 : 1,
+                          cursor: editingSaving ? "not-allowed" : "pointer",
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      color: palette.textSoft,
+                      whiteSpace: "pre-wrap",
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    {message.content}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -188,6 +361,7 @@ export function ChatPanel({
           display: "grid",
           gridTemplateColumns: "minmax(0, 1fr) auto",
           gap: "12px",
+          fontSize: "14px",
         }}
       >
         <textarea
