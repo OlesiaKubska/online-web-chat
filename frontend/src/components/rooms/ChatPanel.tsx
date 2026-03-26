@@ -28,6 +28,7 @@ interface ChatPanelProps {
   onCancelEdit: () => void;
   onSaveEdit: () => void;
   editingSaving: boolean;
+  onDeleteMessage: (messageId: number) => void;
 }
 
 export function ChatPanel({
@@ -50,6 +51,7 @@ export function ChatPanel({
   onCancelEdit,
   onSaveEdit,
   editingSaving,
+  onDeleteMessage,
 }: ChatPanelProps) {
   const orderedMessages = [...messages].reverse();
 
@@ -221,6 +223,37 @@ export function ChatPanel({
                       }}
                     >
                       Edit
+                    </button>
+                  )}
+                  {currentUserId === message.user && (
+                    <button
+                      type="button"
+                      onClick={() => onDeleteMessage(message.id)}
+                      disabled={
+                        editingMessageId !== null &&
+                        editingMessageId !== message.id
+                      }
+                      style={{
+                        ...secondaryButtonStyle,
+                        fontSize: "12px",
+                        padding: "4px 8px",
+                        minWidth: "auto",
+                        opacity:
+                          editingMessageId !== null &&
+                          editingMessageId !== message.id
+                            ? 0.6
+                            : 1,
+                        cursor:
+                          editingMessageId !== null &&
+                          editingMessageId !== message.id
+                            ? "not-allowed"
+                            : "pointer",
+                        backgroundColor: "rgba(220, 53, 69, 0.1)",
+                        borderColor: palette.danger,
+                        color: palette.danger,
+                      }}
+                    >
+                      Delete
                     </button>
                   )}
                 </div>

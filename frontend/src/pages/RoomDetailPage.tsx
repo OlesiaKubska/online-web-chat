@@ -6,7 +6,12 @@ import {
   joinRoom,
   getCurrentUser,
 } from "../lib/roomsApi";
-import { getRoomMessages, sendMessage, editMessage } from "../lib/messagesApi";
+import {
+  getRoomMessages,
+  sendMessage,
+  editMessage,
+  deleteMessage,
+} from "../lib/messagesApi";
 import { ApiError } from "../lib/api";
 import type { Room } from "../types/room";
 import type { Message } from "../types/message";
@@ -183,6 +188,21 @@ export default function RoomDetailPage() {
     }
   };
 
+  const handleDeleteMessage = async (messageId: number) => {
+    if (!window.confirm("Are you sure you want to delete this message?")) {
+      return;
+    }
+
+    try {
+      await deleteMessage(messageId);
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+    } catch (err) {
+      setMessagesError(
+        err instanceof Error ? err.message : "Failed to delete message",
+      );
+    }
+  };
+
   const handleSendMessage = async () => {
     if (!room) return;
 
@@ -285,6 +305,7 @@ export default function RoomDetailPage() {
               onCancelEdit={handleCancelEdit}
               onSaveEdit={handleSaveEdit}
               editingSaving={editingSaving}
+              onDeleteMessage={handleDeleteMessage}
             />
           </main>
         </div>
