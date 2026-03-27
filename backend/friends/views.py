@@ -1,4 +1,5 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.contrib.auth import get_user_model
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -9,8 +10,11 @@ from django.db import models
 
 from .models import FriendRequest, Friendship
 from .serializers import FriendRequestCreateSerializer, FriendRequestSerializer, FriendSerializer
-from .services import accept_friend_request, reject_friend_request, cancel_friend_request
+from .services import accept_friend_request, reject_friend_request, cancel_friend_request, remove_friendship
 from core.authentication import CsrfExemptSessionAuthentication
+
+
+User = get_user_model()
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -162,3 +166,33 @@ class FriendListView(generics.ListAPIView):
                 friends.append(friendship.user1)
         
         return friends
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class RemoveFriendView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [CsrfExemptSessionAuthentication]
+
+    def delete(self, request, user_id):
+        if request.user.id == user_id:
+            return Response(
+                {"detail": "You cannot remove yourself as a friend."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            target_user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {"detail": "User not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        removed = remove_friendship(request.user, target_user)
+        if not removed:
+            return Response(
+                {"detail": "Users are not friends."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
