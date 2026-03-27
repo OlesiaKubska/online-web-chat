@@ -31,7 +31,7 @@ def send_friend_request(from_user, to_user, message=""):
         raise ValidationError("You cannot send a friend request to yourself.")
 
     if is_user_banned(from_user, to_user):
-        raise ValidationError("Friend request is blocked because one of the users banned the other.")
+        raise ValidationError("User is banned.")
 
     if are_friends(from_user, to_user):
         raise ValidationError("Users are already friends.")
