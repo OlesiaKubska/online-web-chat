@@ -8,12 +8,14 @@ from .views import (
     CancelFriendRequestView,
     FriendListView,
     RemoveFriendView,
+    UserBanView,
     IncomingFriendRequestListView,
 )
 
 urlpatterns = [
     path("", FriendListView.as_view(), name="friend-list"),
     path("<int:user_id>/", RemoveFriendView.as_view(), name="friend-remove"),
+    path("ban/<int:user_id>/", UserBanView.as_view(), name="user-ban"),
     path("requests/", FriendRequestCreateView.as_view(), name="friend-request-create"),
     path("requests/incoming/", IncomingFriendRequestListView.as_view(), name="friend-request-incoming"),
     path("requests/outgoing/", OutgoingFriendRequestListView.as_view(), name="friend-request-outgoing"),

@@ -10,7 +10,7 @@ from django.db import models
 
 from .models import FriendRequest, Friendship
 from .serializers import FriendRequestCreateSerializer, FriendRequestSerializer, FriendSerializer
-from .services import accept_friend_request, reject_friend_request, cancel_friend_request, remove_friendship
+from .services import accept_friend_request, reject_friend_request, cancel_friend_request, remove_friendship, ban_user, unban_user
 from core.authentication import CsrfExemptSessionAuthentication
 
 
@@ -146,9 +146,11 @@ class CancelFriendRequestView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
+@method_decorator(csrf_exempt, name='dispatch')
 class FriendListView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = FriendSerializer
+    authentication_classes = [CsrfExemptSessionAuthentication]
 
     def get_queryset(self):
         user = self.request.user
@@ -192,6 +194,65 @@ class RemoveFriendView(APIView):
         if not removed:
             return Response(
                 {"detail": "Users are not friends."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class UserBanView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [CsrfExemptSessionAuthentication]
+
+    def post(self, request, user_id):
+        if request.user.id == user_id:
+            return Response(
+                {"detail": "You cannot ban yourself."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            target_user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {"detail": "User not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        try:
+            ban_user(request.user, target_user)
+        except DjangoValidationError as exc:
+            return Response(
+                {"detail": exc.message},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(status=status.HTTP_201_CREATED)
+
+    def delete(self, request, user_id):
+        if request.user.id == user_id:
+            return Response(
+                {"detail": "You cannot unban yourself."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            target_user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {"detail": "User not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        try:
+            unban_user(request.user, target_user)
+        except DjangoValidationError as exc:
+            return Response(
+                {"detail": exc.message},
                 status=status.HTTP_404_NOT_FOUND,
             )
 

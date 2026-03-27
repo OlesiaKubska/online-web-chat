@@ -1,5 +1,5 @@
 from django.core.exceptions import ValidationError
-from django.db import transaction
+from django.db import transaction, models
 from django.db.models import Q
 
 from .models import FriendRequest, Friendship, UserBan
@@ -103,3 +103,39 @@ def remove_friendship(user_a, user_b):
     user1, user2 = normalize_user_pair(user_a, user_b)
     deleted_count, _ = Friendship.objects.filter(user1=user1, user2=user2).delete()
     return deleted_count > 0
+
+
+@transaction.atomic
+def ban_user(source_user, target_user):
+    if source_user.id == target_user.id:
+        raise ValidationError("You cannot ban yourself.")
+
+    # Check if ban already exists
+    if UserBan.objects.filter(source_user=source_user, target_user=target_user).exists():
+        raise ValidationError("User is already banned.")
+
+    # Create the ban record
+    UserBan.objects.create(source_user=source_user, target_user=target_user)
+
+    # Remove friendship if it exists
+    remove_friendship(source_user, target_user)
+
+    # Cancel any pending friend requests between the two users (both directions)
+    FriendRequest.objects.filter(
+        Q(from_user=source_user, to_user=target_user, status=FriendRequest.Status.PENDING) |
+        Q(from_user=target_user, to_user=source_user, status=FriendRequest.Status.PENDING)
+    ).update(status=FriendRequest.Status.CANCELED, updated_at=models.functions.Now())
+
+    return True
+
+
+def unban_user(source_user, target_user):
+    if source_user.id == target_user.id:
+        raise ValidationError("You cannot unban yourself.")
+
+    # Check if ban exists
+    deleted_count, _ = UserBan.objects.filter(source_user=source_user, target_user=target_user).delete()
+    if deleted_count == 0:
+        raise ValidationError("No ban exists between these users.")
+
+    return True
