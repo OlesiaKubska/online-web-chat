@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   getRoomById,
@@ -45,6 +45,11 @@ export default function RoomDetailPage() {
   const [editingMessageContent, setEditingMessageContent] = useState("");
   const [editingSaving, setEditingSaving] = useState(false);
   const [ws, setWs] = useState<WebSocket | null>(null);
+  const [reconnectKey, setReconnectKey] = useState(0);
+  const [wsStatus, setWsStatus] = useState<
+    "connecting" | "connected" | "disconnected"
+  >("disconnected");
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
     if (!id) {
@@ -94,6 +99,7 @@ export default function RoomDetailPage() {
     socket.onopen = () => {
       console.log(`Connected to WebSocket for room ${room.id}`);
       setWs(socket);
+      setWsStatus("connected");
     };
 
     socket.onmessage = (event) => {
@@ -116,17 +122,36 @@ export default function RoomDetailPage() {
 
     socket.onerror = (err) => {
       console.error("WebSocket error:", err);
+      setWsStatus("disconnected");
     };
 
     socket.onclose = () => {
       console.log(`Disconnected from WebSocket for room ${room.id}`);
       setWs(null);
+      setWsStatus("disconnected");
+
+      // Schedule reconnect after 2 seconds if component is still mounted
+      if (isMountedRef.current) {
+        setWsStatus("connecting");
+        setTimeout(() => {
+          if (isMountedRef.current) {
+            setReconnectKey((prev) => prev + 1);
+          }
+        }, 2000);
+      }
     };
 
     return () => {
       socket.close();
     };
-  }, [room?.id]);
+  }, [room?.id, reconnectKey]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const fetchRoom = async (roomId: number, showPageLoader = true) => {
     try {
@@ -368,6 +393,7 @@ export default function RoomDetailPage() {
               onSaveEdit={handleSaveEdit}
               editingSaving={editingSaving}
               onDeleteMessage={handleDeleteMessage}
+              wsStatus={wsStatus}
             />
           </main>
         </div>

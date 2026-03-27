@@ -30,6 +30,7 @@ interface ChatPanelProps {
   onSaveEdit: () => void;
   editingSaving: boolean;
   onDeleteMessage: (messageId: number) => void;
+  wsStatus: "connecting" | "connected" | "disconnected";
 }
 
 export function ChatPanel({
@@ -53,12 +54,24 @@ export function ChatPanel({
   onSaveEdit,
   editingSaving,
   onDeleteMessage,
+  wsStatus,
 }: ChatPanelProps) {
   const orderedMessages = [...messages].reverse();
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    // Check if user is near bottom (within 120px)
+    const isNearBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight <=
+      120;
+
+    if (isNearBottom) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages]);
 
   return (
@@ -88,9 +101,27 @@ export function ChatPanel({
           </p>
         </div>
 
-        <MetaPill tone={room.joined ? "success" : "default"}>
-          {room.joined ? "Ready to chat" : "Join to participate"}
-        </MetaPill>
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          <MetaPill
+            tone={
+              wsStatus === "connected"
+                ? "success"
+                : wsStatus === "connecting"
+                  ? "default"
+                  : "danger"
+            }
+          >
+            {wsStatus === "connected"
+              ? "🟢 Live"
+              : wsStatus === "connecting"
+                ? "🟡 Connecting..."
+                : "🔴 Offline"}
+          </MetaPill>
+
+          <MetaPill tone={room.joined ? "success" : "default"}>
+            {room.joined ? "Ready to chat" : "Join to participate"}
+          </MetaPill>
+        </div>
       </div>
 
       <div
@@ -148,22 +179,78 @@ export function ChatPanel({
           </div>
         )}
         {messagesLoading && (
-          <div style={{ textAlign: "center", color: palette.textMuted }}>
-            Loading messages...
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "12px",
+              padding: "32px 16px",
+              color: palette.textMuted,
+            }}
+          >
+            <div style={{ fontSize: "24px" }}>⏳</div>
+            <div style={{ fontSize: "14px" }}>Loading messages...</div>
           </div>
         )}
         {messagesError && (
-          <div style={{ textAlign: "center", color: palette.danger }}>
-            {messagesError}
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+              padding: "32px 16px",
+              color: palette.danger,
+              textAlign: "center",
+            }}
+          >
+            <div style={{ fontSize: "24px" }}>⚠️</div>
+            <div style={{ fontSize: "16px", fontWeight: 600 }}>
+              Failed to load messages
+            </div>
+            <div style={{ fontSize: "14px", opacity: 0.8 }}>
+              {messagesError}
+            </div>
           </div>
         )}
         {!messagesLoading && !messagesError && messages.length === 0 && (
-          <div style={{ textAlign: "center", color: palette.textMuted }}>
-            No messages yet. Be the first to send one!
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "12px",
+              padding: "48px 16px",
+              color: palette.textMuted,
+              textAlign: "center",
+            }}
+          >
+            <div style={{ fontSize: "48px", opacity: 0.5 }}>💬</div>
+            <div>
+              <div
+                style={{
+                  fontSize: "18px",
+                  fontWeight: 600,
+                  marginBottom: "8px",
+                }}
+              >
+                No messages yet
+              </div>
+              <div style={{ fontSize: "14px", opacity: 0.8 }}>
+                {room.joined
+                  ? "Start the conversation by sending the first message!"
+                  : "Join the room to start chatting with others."}
+              </div>
+            </div>
           </div>
         )}
         {!messagesLoading && !messagesError && messages.length > 0 && (
           <div
+            ref={messagesContainerRef}
             style={{
               display: "flex",
               flexDirection: "column",
@@ -409,7 +496,12 @@ export function ChatPanel({
           value={messageContent}
           onChange={(e) => onMessageChange(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey && !sendingMessage) {
+            if (
+              e.key === "Enter" &&
+              !e.shiftKey &&
+              !sendingMessage &&
+              messageContent.trim()
+            ) {
               e.preventDefault();
               onSendMessage();
             }
