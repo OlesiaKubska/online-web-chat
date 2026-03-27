@@ -5,9 +5,10 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
+from django.db import models
 
-from .models import FriendRequest
-from .serializers import FriendRequestCreateSerializer, FriendRequestSerializer
+from .models import FriendRequest, Friendship
+from .serializers import FriendRequestCreateSerializer, FriendRequestSerializer, FriendSerializer
 from .services import accept_friend_request, reject_friend_request, cancel_friend_request
 from core.authentication import CsrfExemptSessionAuthentication
 
@@ -139,3 +140,25 @@ class CancelFriendRequestView(APIView):
 
         serializer = FriendRequestSerializer(friend_request)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class FriendListView(generics.ListAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = FriendSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        # Find all friendships where the current user is either user1 or user2
+        friendships = Friendship.objects.filter(
+            models.Q(user1=user) | models.Q(user2=user)
+        ).select_related('user1', 'user2')
+        
+        # Get the "other user" from each friendship
+        friends = []
+        for friendship in friendships:
+            if friendship.user1 == user:
+                friends.append(friendship.user2)
+            else:
+                friends.append(friendship.user1)
+        
+        return friends

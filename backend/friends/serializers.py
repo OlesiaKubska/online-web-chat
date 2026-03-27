@@ -41,3 +41,9 @@ class FriendRequestSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+
+
+class FriendSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ["id", "username", "email"]
