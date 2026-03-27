@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'channels',
     'core',
     'accounts',
+    'friends',
     'rooms',
 ]
 
