@@ -24,6 +24,26 @@ def is_user_banned(user_a, user_b):
     ).exists()
 
 
+def get_friends_queryset(user):
+    """
+    Get queryset of friends for a user, excluding banned users.
+    """
+    # Find all friendships where the current user is either user1 or user2
+    friendships = Friendship.objects.filter(
+        Q(user1=user) | Q(user2=user)
+    ).select_related('user1', 'user2')
+    
+    # Get the "other user" from each friendship, excluding banned users
+    friends = []
+    for friendship in friendships:
+        other_user = friendship.user2 if friendship.user1 == user else friendship.user1
+        # Skip if either user has banned the other
+        if not is_user_banned(user, other_user):
+            friends.append(other_user)
+    
+    return friends
+
+
 def send_friend_request(from_user, to_user, message=""):
     message = (message or "").strip()
 

@@ -153,21 +153,7 @@ class FriendListView(generics.ListAPIView):
     authentication_classes = [CsrfExemptSessionAuthentication]
 
     def get_queryset(self):
-        user = self.request.user
-        # Find all friendships where the current user is either user1 or user2
-        friendships = Friendship.objects.filter(
-            models.Q(user1=user) | models.Q(user2=user)
-        ).select_related('user1', 'user2')
-        
-        # Get the "other user" from each friendship
-        friends = []
-        for friendship in friendships:
-            if friendship.user1 == user:
-                friends.append(friendship.user2)
-            else:
-                friends.append(friendship.user1)
-        
-        return friends
+        return get_friends_queryset(self.request.user)
 
 
 @method_decorator(csrf_exempt, name='dispatch')
