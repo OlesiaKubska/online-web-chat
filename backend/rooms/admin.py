@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Room, RoomMembership, Message
+from .models import Room, RoomMembership, Message, RoomBan
 
 
 @admin.register(Room)
@@ -24,3 +24,13 @@ class MessageAdmin(admin.ModelAdmin):
 
     def short_content(self, obj):
         return obj.content[:50]
+
+
+@admin.register(RoomBan)
+class RoomBanAdmin(admin.ModelAdmin):
+    list_display = ('id', 'room', 'banned_user', 'banned_by', 'short_reason', 'created_at')
+    search_fields = ('room__name', 'banned_user__username', 'banned_by__username', 'reason')
+    list_filter = ('created_at',)
+
+    def short_reason(self, obj):
+        return obj.reason[:50] if obj.reason else ''

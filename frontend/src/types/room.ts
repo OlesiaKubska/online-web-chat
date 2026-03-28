@@ -7,7 +7,7 @@ export interface Room {
   owner_username: string
   member_count: number
   joined: boolean
-  my_role: 'owner' | 'member' | null
+  my_role: 'owner' | 'admin' | 'member' | null
   created_at: string
 }
 

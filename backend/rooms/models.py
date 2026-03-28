@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import UniqueConstraint
 from django.db.models.functions import Lower
@@ -40,6 +41,7 @@ class Room(models.Model):
 class RoomMembership(models.Model):
     class Role(models.TextChoices):
         OWNER = 'owner', 'Owner'
+        ADMIN = 'admin', 'Admin'
         MEMBER = 'member', 'Member'
 
     room = models.ForeignKey(
@@ -70,6 +72,22 @@ class RoomMembership(models.Model):
     def __str__(self):
         return f'{self.user} in {self.room} ({self.role})'
 
+    @classmethod
+    def is_owner(cls, user, room):
+        return cls.objects.filter(room=room, user=user, role=cls.Role.OWNER).exists()
+
+    @classmethod
+    def is_admin(cls, user, room):
+        return cls.objects.filter(room=room, user=user, role=cls.Role.ADMIN).exists()
+
+    @classmethod
+    def is_moderator(cls, user, room):
+        return cls.objects.filter(
+            room=room, 
+            user=user, 
+            role__in=[cls.Role.OWNER, cls.Role.ADMIN]
+        ).exists()
+
 
 class Message(models.Model):
     room = models.ForeignKey(
@@ -99,3 +117,42 @@ class Message(models.Model):
 
     def __str__(self):
         return f'Message {self.id} by {self.user} in room {self.room_id}'
+
+
+class RoomBan(models.Model):
+    room = models.ForeignKey(
+        Room,
+        on_delete=models.CASCADE,
+        related_name='bans',
+    )
+    banned_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='room_bans',
+    )
+    banned_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='issued_room_bans',
+    )
+    reason = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def clean(self):
+        if self.room.owner_id == self.banned_user_id:
+            raise ValidationError("Cannot ban the room owner.")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['room', 'banned_user'],
+                name='unique_room_ban',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['room', 'banned_user']),
+            models.Index(fields=['created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.banned_user} banned from {self.room} by {self.banned_by}"
