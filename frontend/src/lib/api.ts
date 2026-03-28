@@ -62,3 +62,21 @@ export async function apiRequest<T>(
 
   return data as T
 }
+
+export interface PresenceHeartbeatPayload {
+  session_id: string
+  tab_id: string
+  status: 'online' | 'afk'
+}
+
+export interface PresenceHeartbeatResponse {
+  user_id: number
+  status: string
+}
+
+export async function sendPresenceHeartbeat(payload: PresenceHeartbeatPayload): Promise<PresenceHeartbeatResponse> {
+  return apiRequest<PresenceHeartbeatResponse>('presence/heartbeat/', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}

@@ -5,8 +5,12 @@ import LoginPage from "./LoginPage";
 import ProtectedRoute from "./ProtectedRoute";
 import RoomsPage from "./pages/RoomsPage";
 import RoomDetailPage from "./pages/RoomDetailPage";
+import { usePresence } from "./lib/usePresence";
 
 function App() {
+  // Initialize presence tracking
+  usePresence();
+
   return (
     <Routes>
       <Route
