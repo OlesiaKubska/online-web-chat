@@ -8,6 +8,7 @@ from .views import (
     LeaveRoomView,
     RoomMessageListCreateView,
     MessageDetailView,
+    ModerationDeleteMessageView,
     BanUserView,
     UnbanUserView,
     RemoveMemberView,
@@ -27,4 +28,5 @@ urlpatterns = [
     path('<int:pk>/members/<int:user_id>/', RemoveMemberView.as_view(), name='remove-member'),
     path('<int:pk>/bans/', RoomBansListView.as_view(), name='room-bans'),
     path('messages/<int:pk>/', MessageDetailView.as_view(), name='message-detail'),
+    path('room-messages/<int:pk>/moderation-delete/', ModerationDeleteMessageView.as_view(), name='moderation-delete-message'),
 ]

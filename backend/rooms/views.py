@@ -99,6 +99,15 @@ class RoomDetailView(generics.RetrieveAPIView):
 
         return room
 
+    def delete(self, request, *args, **kwargs):
+        room = self.get_object()
+        from .services import can_delete_room
+        if not can_delete_room(request.user, room):
+            raise PermissionDenied('Only the room owner can delete the room.')
+        
+        room.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
 
 @method_decorator(csrf_exempt, name='dispatch')
 class JoinRoomView(APIView):
@@ -243,8 +252,31 @@ class MessageDetailView(APIView):
     def delete(self, request, pk):
         message = self.get_message(pk)
 
-        if message.user_id != request.user.id:
-            raise PermissionDenied('You can delete only your own messages.')
+        from .services import can_delete_message
+        if not can_delete_message(request.user, message):
+            raise PermissionDenied('You do not have permission to delete this message.')
+
+        message.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class ModerationDeleteMessageView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [CsrfExemptSessionAuthentication]
+
+    def get_message(self, pk):
+        try:
+            return Message.objects.select_related('room', 'user').get(pk=pk)
+        except Message.DoesNotExist:
+            raise NotFound('Message not found.')
+
+    def delete(self, request, pk):
+        message = self.get_message(pk)
+
+        from .services import can_moderate_message
+        if not can_moderate_message(request.user, message):
+            raise PermissionDenied('You do not have permission to moderate messages in this room.')
 
         message.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
