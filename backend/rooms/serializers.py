@@ -1,6 +1,6 @@
 from django.db import transaction
 from rest_framework import serializers
-from .models import Room, RoomMembership, Message, RoomBan
+from .models import Room, RoomMembership, Message, RoomBan, MessageAttachment
 
 
 class RoomSerializer(serializers.ModelSerializer):
@@ -89,9 +89,25 @@ class CreateRoomSerializer(serializers.ModelSerializer):
         return room
 
 
+class MessageAttachmentSerializer(serializers.ModelSerializer):
+    file_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = MessageAttachment
+        fields = ["id", "original_name", "comment", "file_url", "created_at"]
+
+    def get_file_url(self, obj):
+        request = self.context.get("request")
+        if request:
+            return request.build_absolute_uri(obj.file.url)
+        return obj.file.url
+
+
 class MessageSerializer(serializers.ModelSerializer):
     user_username = serializers.CharField(source='user.username', read_only=True)
     reply_to_message = serializers.SerializerMethodField()
+    attachments = MessageAttachmentSerializer(many=True, read_only=True)
+
 
     class Meta:
         model = Message
@@ -106,6 +122,7 @@ class MessageSerializer(serializers.ModelSerializer):
             'edited',
             'created_at',
             'updated_at',
+            'attachments',
         ]
         read_only_fields = [
             'id',
@@ -115,6 +132,7 @@ class MessageSerializer(serializers.ModelSerializer):
             'edited',
             'created_at',
             'updated_at',
+            'attachments',
         ]
 
     def get_reply_to_message(self, obj):

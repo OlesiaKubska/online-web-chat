@@ -2,14 +2,16 @@ from django.db.models import Q
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.utils.dateparse import parse_datetime
+from django.shortcuts import get_object_or_404
 
 from rest_framework import generics, status
+from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.exceptions import PermissionDenied, NotFound
 
-from .models import Room, RoomMembership, Message, RoomBan
+from .models import Room, RoomMembership, Message, RoomBan, MessageAttachment
 from .serializers import (
     RoomSerializer,
     CreateRoomSerializer,
@@ -17,7 +19,7 @@ from .serializers import (
     CreateMessageSerializer,
     UpdateMessageSerializer,
     RoomBanSerializer,
-    CreateRoomBanSerializer)
+    CreateRoomBanSerializer, MessageAttachmentSerializer)
 from core.authentication import CsrfExemptSessionAuthentication
 
 
@@ -205,7 +207,7 @@ class RoomMessageListCreateView(APIView):
 
         messages = messages.order_by('-created_at')[:20]
 
-        serializer = MessageSerializer(messages, many=True)
+        serializer = MessageSerializer(messages, many=True, context={"request": request},)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request, pk):
@@ -222,7 +224,7 @@ class RoomMessageListCreateView(APIView):
         serializer.is_valid(raise_exception=True)
         message = serializer.save()
 
-        output_serializer = MessageSerializer(message)
+        output_serializer = MessageSerializer(message, context={"request": request},)
         return Response(output_serializer.data, status=status.HTTP_201_CREATED)
 
 
@@ -246,7 +248,7 @@ class MessageDetailView(APIView):
         serializer.is_valid(raise_exception=True)
         updated_message = serializer.save()
 
-        output_serializer = MessageSerializer(updated_message)
+        output_serializer = MessageSerializer(updated_message, context={"request": request},)
         return Response(output_serializer.data, status=status.HTTP_200_OK)
 
     def delete(self, request, pk):
@@ -412,3 +414,30 @@ class RoomBansListView(generics.ListAPIView):
             return RoomBan.objects.none()
 
         return RoomBan.objects.filter(room=room).select_related('banned_user', 'banned_by')
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class MessageAttachmentUploadView(APIView):
+    authentication_classes = [CsrfExemptSessionAuthentication]
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request, message_id):
+        message = get_object_or_404(Message, pk=message_id)
+        ensure_room_member(message.room, request.user)
+
+        uploaded_file = request.FILES.get("file")
+        if not uploaded_file:
+            return Response({"detail": "File is required."}, status=400)
+
+        attachment = MessageAttachment.objects.create(
+            message=message,
+            file=uploaded_file,
+            original_name=uploaded_file.name,
+            comment=request.data.get("comment", ""),
+        )
+
+        serializer = MessageAttachmentSerializer(
+            attachment, context={"request": request}
+        )
+        return Response(serializer.data, status=status.HTTP_201_CREATED)

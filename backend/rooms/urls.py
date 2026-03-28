@@ -12,7 +12,7 @@ from .views import (
     BanUserView,
     UnbanUserView,
     RemoveMemberView,
-    RoomBansListView,
+    RoomBansListView, MessageAttachmentUploadView,
 )
 
 urlpatterns = [
@@ -29,4 +29,5 @@ urlpatterns = [
     path('<int:pk>/bans/', RoomBansListView.as_view(), name='room-bans'),
     path('messages/<int:pk>/', MessageDetailView.as_view(), name='message-detail'),
     path('room-messages/<int:pk>/moderation-delete/', ModerationDeleteMessageView.as_view(), name='moderation-delete-message'),
+    path('room-messages/<int:message_id>/attachments/', MessageAttachmentUploadView.as_view(), name='message-attachment-upload'),
 ]

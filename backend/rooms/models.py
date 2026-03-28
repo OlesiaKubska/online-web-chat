@@ -156,3 +156,18 @@ class RoomBan(models.Model):
 
     def __str__(self):
         return f"{self.banned_user} banned from {self.room} by {self.banned_by}"
+
+
+class MessageAttachment(models.Model):
+    message = models.ForeignKey(
+        Message,
+        on_delete=models.CASCADE,
+        related_name="attachments",
+    )
+    file = models.FileField(upload_to="chat_attachments/")
+    original_name = models.CharField(max_length=255)
+    comment = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.original_name
