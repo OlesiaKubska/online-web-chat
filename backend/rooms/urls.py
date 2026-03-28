@@ -8,6 +8,10 @@ from .views import (
     LeaveRoomView,
     RoomMessageListCreateView,
     MessageDetailView,
+    BanUserView,
+    UnbanUserView,
+    RemoveMemberView,
+    RoomBansListView,
 )
 
 urlpatterns = [
@@ -18,5 +22,9 @@ urlpatterns = [
     path('<int:pk>/join/', JoinRoomView.as_view(), name='join-room'),
     path('<int:pk>/leave/', LeaveRoomView.as_view(), name='leave-room'),
     path('<int:pk>/messages/', RoomMessageListCreateView.as_view(), name='room-messages'),
+    path('<int:pk>/ban/<int:user_id>/', BanUserView.as_view(), name='ban-user'),
+    path('<int:pk>/bans/<int:user_id>/', UnbanUserView.as_view(), name='unban-user'),
+    path('<int:pk>/members/<int:user_id>/', RemoveMemberView.as_view(), name='remove-member'),
+    path('<int:pk>/bans/', RoomBansListView.as_view(), name='room-bans'),
     path('messages/<int:pk>/', MessageDetailView.as_view(), name='message-detail'),
 ]

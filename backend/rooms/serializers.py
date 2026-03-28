@@ -1,6 +1,6 @@
 from django.db import transaction
 from rest_framework import serializers
-from .models import Room, RoomMembership, Message
+from .models import Room, RoomMembership, Message, RoomBan
 
 
 class RoomSerializer(serializers.ModelSerializer):
@@ -173,3 +173,38 @@ class UpdateMessageSerializer(serializers.ModelSerializer):
         instance.edited = True
         instance.save(update_fields=['content', 'edited', 'updated_at'])
         return instance
+
+
+class RoomBanSerializer(serializers.ModelSerializer):
+    banned_username = serializers.CharField(source='banned_user.username', read_only=True)
+    banned_by_username = serializers.CharField(source='banned_by.username', read_only=True)
+
+    class Meta:
+        model = RoomBan
+        fields = [
+            'id',
+            'room',
+            'banned_user',
+            'banned_username',
+            'banned_by',
+            'banned_by_username',
+            'reason',
+            'created_at',
+        ]
+        read_only_fields = ['id', 'room', 'banned_by', 'created_at']
+
+
+class CreateRoomBanSerializer(serializers.Serializer):
+    reason = serializers.CharField(required=False, allow_blank=True)
+
+    def create(self, validated_data):
+        room = self.context['room']
+        banned_user = self.context['banned_user']
+        banned_by = self.context['request'].user
+
+        return RoomBan.objects.create(
+            room=room,
+            banned_user=banned_user,
+            banned_by=banned_by,
+            reason=validated_data.get('reason', ''),
+        )

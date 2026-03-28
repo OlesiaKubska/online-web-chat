@@ -9,13 +9,15 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.exceptions import PermissionDenied, NotFound
 
-from .models import Room, RoomMembership, Message
+from .models import Room, RoomMembership, Message, RoomBan
 from .serializers import (
     RoomSerializer,
     CreateRoomSerializer,
     MessageSerializer,
     CreateMessageSerializer,
-    UpdateMessageSerializer)
+    UpdateMessageSerializer,
+    RoomBanSerializer,
+    CreateRoomBanSerializer)
 from core.authentication import CsrfExemptSessionAuthentication
 
 
@@ -23,6 +25,11 @@ def ensure_room_member(room, user):
     is_member = room.memberships.filter(user=user).exists()
     if not is_member:
         raise PermissionDenied('You are not a member of this room.')
+
+
+def ensure_room_moderator(room, user):
+    if not RoomMembership.is_moderator(user, room):
+        raise PermissionDenied('You do not have permission to moderate this room.')
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -107,6 +114,13 @@ class JoinRoomView(APIView):
         if room.visibility != Room.Visibility.PUBLIC:
             return Response(
                 {'detail': 'You cannot join a private room directly.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Check if user is banned
+        if RoomBan.objects.filter(room=room, banned_user=request.user).exists():
+            return Response(
+                {'detail': 'You are banned from this room.'},
                 status=status.HTTP_403_FORBIDDEN
             )
 
@@ -234,3 +248,135 @@ class MessageDetailView(APIView):
 
         message.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class BanUserView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [CsrfExemptSessionAuthentication]
+
+    def get_room(self, pk):
+        try:
+            return Room.objects.get(pk=pk)
+        except Room.DoesNotExist:
+            raise NotFound('Room not found.')
+
+    def get_user(self, user_id):
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        try:
+            return User.objects.get(pk=user_id)
+        except User.DoesNotExist:
+            raise NotFound('User not found.')
+
+    def post(self, request, pk, user_id):
+        room = self.get_room(pk)
+        banned_user = self.get_user(user_id)
+
+        ensure_room_moderator(room, request.user)
+
+        if banned_user.id == request.user.id:
+            return Response({'detail': 'You cannot ban yourself.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = CreateRoomBanSerializer(
+            data=request.data,
+            context={'request': request, 'room': room, 'banned_user': banned_user}
+        )
+        serializer.is_valid(raise_exception=True)
+        ban = serializer.save()
+
+        # Remove from membership if present
+        RoomMembership.objects.filter(room=room, user=banned_user).delete()
+
+        output_serializer = RoomBanSerializer(ban)
+        return Response(output_serializer.data, status=status.HTTP_201_CREATED)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class UnbanUserView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [CsrfExemptSessionAuthentication]
+
+    def get_room(self, pk):
+        try:
+            return Room.objects.get(pk=pk)
+        except Room.DoesNotExist:
+            raise NotFound('Room not found.')
+
+    def delete(self, request, pk, user_id):
+        room = self.get_room(pk)
+        ensure_room_moderator(room, request.user)
+
+        try:
+            ban = RoomBan.objects.get(room=room, banned_user_id=user_id)
+        except RoomBan.DoesNotExist:
+            return Response({'detail': 'User is not banned from this room.'}, status=status.HTTP_404_NOT_FOUND)
+
+        ban.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class RemoveMemberView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [CsrfExemptSessionAuthentication]
+
+    def get_room(self, pk):
+        try:
+            return Room.objects.get(pk=pk)
+        except Room.DoesNotExist:
+            raise NotFound('Room not found.')
+
+    def get_user(self, user_id):
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        try:
+            return User.objects.get(pk=user_id)
+        except User.DoesNotExist:
+            raise NotFound('User not found.')
+
+    def delete(self, request, pk, user_id):
+        room = self.get_room(pk)
+        member_user = self.get_user(user_id)
+
+        ensure_room_moderator(room, request.user)
+
+        if member_user.id == request.user.id:
+            return Response({'detail': 'You cannot remove yourself.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check if user is a member
+        membership = RoomMembership.objects.filter(room=room, user=member_user).first()
+        if not membership:
+            return Response({'detail': 'User is not a member of this room.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Create ban (reason can be from request data if provided)
+        reason = request.data.get('reason', 'Removed by moderator')
+        ban = RoomBan.objects.create(
+            room=room,
+            banned_user=member_user,
+            banned_by=request.user,
+            reason=reason,
+        )
+
+        # Remove membership
+        membership.delete()
+
+        output_serializer = RoomBanSerializer(ban)
+        return Response(output_serializer.data, status=status.HTTP_200_OK)
+
+
+class RoomBansListView(generics.ListAPIView):
+    serializer_class = RoomBanSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        room_id = self.kwargs['pk']
+        room = Room.objects.filter(pk=room_id).first()
+        if not room:
+            return RoomBan.objects.none()
+
+        # Only moderators can see bans
+        if not RoomMembership.is_moderator(self.request.user, room):
+            return RoomBan.objects.none()
+
+        return RoomBan.objects.filter(room=room).select_related('banned_user', 'banned_by')
