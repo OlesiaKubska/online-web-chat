@@ -5,40 +5,25 @@ import LoginPage from "./LoginPage";
 import ProtectedRoute from "./ProtectedRoute";
 import RoomsPage from "./pages/RoomsPage";
 import RoomDetailPage from "./pages/RoomDetailPage";
-import { usePresence } from "./lib/usePresence";
+import ProtectedLayout from "./ProtectedLayout";
 
 function App() {
-  // Initialize presence tracking
-  usePresence();
-
   return (
     <Routes>
-      <Route
-        path="/"
-        element={
-          <ProtectedRoute>
-            <HomePage />
-          </ProtectedRoute>
-        }
-      />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/login" element={<LoginPage />} />
+
       <Route
-        path="/rooms"
         element={
           <ProtectedRoute>
-            <RoomsPage />
+            <ProtectedLayout />
           </ProtectedRoute>
         }
-      />
-      <Route
-        path="/rooms/:id"
-        element={
-          <ProtectedRoute>
-            <RoomDetailPage />
-          </ProtectedRoute>
-        }
-      />
+      >
+        <Route path="/" element={<HomePage />} />
+        <Route path="/rooms" element={<RoomsPage />} />
+        <Route path="/rooms/:id" element={<RoomDetailPage />} />
+      </Route>
     </Routes>
   );
 }

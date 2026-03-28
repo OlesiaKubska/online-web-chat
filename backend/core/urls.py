@@ -1,8 +1,9 @@
 from django.urls import path
-from .views import health_check, presence_heartbeat, presence_users
+
+from .views import HealthCheckView, PresenceHeartbeatView, PresenceUsersView
 
 urlpatterns = [
-    path('health/', health_check),
-    path('presence/heartbeat/', presence_heartbeat),
-    path('presence/users/', presence_users),
+    path("", HealthCheckView.as_view(), name="health-check"),
+    path("presence/heartbeat/", PresenceHeartbeatView.as_view(), name="presence-heartbeat"),
+    path("presence/users/", PresenceUsersView.as_view(), name="presence-users"),
 ]

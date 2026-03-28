@@ -75,7 +75,7 @@ export interface PresenceHeartbeatResponse {
 }
 
 export async function sendPresenceHeartbeat(payload: PresenceHeartbeatPayload): Promise<PresenceHeartbeatResponse> {
-  return apiRequest<PresenceHeartbeatResponse>('presence/heartbeat/', {
+  return apiRequest<PresenceHeartbeatResponse>('/presence/heartbeat/', {
     method: 'POST',
     body: JSON.stringify(payload),
   })
