@@ -6,11 +6,18 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
-from django.db import models
 
 from .models import FriendRequest, Friendship
 from .serializers import FriendRequestCreateSerializer, FriendRequestSerializer, FriendSerializer
-from .services import accept_friend_request, reject_friend_request, cancel_friend_request, remove_friendship, ban_user, unban_user
+from .services import (
+    accept_friend_request,
+    reject_friend_request,
+    cancel_friend_request,
+    remove_friendship,
+    ban_user,
+    unban_user,
+    get_friends_queryset,
+)
 from core.authentication import CsrfExemptSessionAuthentication
 
 
@@ -182,9 +189,6 @@ class RemoveFriendView(APIView):
                 {"detail": "Users are not friends."},
                 status=status.HTTP_404_NOT_FOUND,
             )
-
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
