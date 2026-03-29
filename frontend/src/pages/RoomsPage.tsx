@@ -11,6 +11,7 @@ import { palette, inputStyle, roomGridStyle } from "../styles/roomsTheme";
 import SectionShell from "../components/rooms/SectionShell";
 import EmptyState from "../components/rooms/EmptyState";
 import RoomCard from "../components/rooms/RoomCard";
+import { AppNavBar } from "../components/navigation/AppNavBar";
 
 export default function RoomsPage() {
   const navigate = useNavigate();
@@ -131,6 +132,8 @@ export default function RoomsPage() {
       }}
     >
       <div style={{ maxWidth: "1280px", margin: "0 auto" }}>
+        <AppNavBar mode="authenticated" />
+
         <header
           style={{
             marginBottom: "28px",
