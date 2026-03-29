@@ -90,6 +90,47 @@ class FriendsApiFlowTests(APITestCase):
 		self.assertEqual(cancel_response.status_code, status.HTTP_200_OK)
 		self.assertEqual(cancel_response.data["status"], FriendRequest.Status.CANCELED)
 
+	def test_send_friend_request_by_username_success(self):
+		self.client.force_login(self.alice)
+
+		response = self.client.post(
+			"/api/friends/requests/",
+			{"username": self.bob.username, "message": "Hello from username flow"},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+		self.assertEqual(response.data["from_user"], self.alice.id)
+		self.assertEqual(response.data["to_user"], self.bob.id)
+		self.assertEqual(response.data["status"], FriendRequest.Status.PENDING)
+
+	def test_send_friend_request_by_username_to_self_returns_400(self):
+		self.client.force_login(self.alice)
+
+		response = self.client.post(
+			"/api/friends/requests/",
+			{"username": self.alice.username, "message": "self"},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+		self.assertEqual(
+			response.data["detail"],
+			"You cannot send a friend request to yourself.",
+		)
+
+	def test_send_friend_request_by_unknown_username_returns_400(self):
+		self.client.force_login(self.alice)
+
+		response = self.client.post(
+			"/api/friends/requests/",
+			{"username": "nonexistent_user_12345", "message": "test"},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+		self.assertIn("username", response.data)
+
 	def test_user_ban_and_unban_flow(self):
 		Friendship.objects.create(user1=self.alice, user2=self.bob)
 

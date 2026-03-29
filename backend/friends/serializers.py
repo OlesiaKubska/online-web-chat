@@ -8,13 +8,39 @@ User = get_user_model()
 
 
 class FriendRequestCreateSerializer(serializers.Serializer):
-    to_user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
+    username = serializers.CharField(required=False, allow_blank=False)
+    to_user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), required=False)
     message = serializers.CharField(required=False, allow_blank=True)
+
+    def validate(self, attrs):
+        username = attrs.get("username")
+        to_user = attrs.get("to_user")
+
+        if username:
+            username = username.strip()
+            try:
+                target_user = User.objects.get(username=username)
+            except User.DoesNotExist:
+                raise serializers.ValidationError({
+                    "username": "User with this username does not exist."
+                })
+
+            attrs["resolved_to_user"] = target_user
+            attrs["username"] = username
+            return attrs
+
+        if to_user:
+            attrs["resolved_to_user"] = to_user
+            return attrs
+
+        raise serializers.ValidationError({
+            "username": "This field is required."
+        })
 
     def create(self, validated_data):
         request = self.context["request"]
         from_user = request.user
-        to_user = validated_data["to_user"]
+        to_user = validated_data["resolved_to_user"]
         message = validated_data.get("message", "")
 
         return send_friend_request(
