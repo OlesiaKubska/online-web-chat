@@ -1,3 +1,8 @@
+from django.core.exceptions import ValidationError
+from django.db import transaction, IntegrityError
+
+from friends.services import are_friends, is_user_banned, normalize_user_pair
+
 from .models import Room, RoomMembership, Message
 
 
@@ -19,3 +24,56 @@ def can_delete_own_message(user, message):
 def can_delete_message(user, message):
     """Check if user can delete the message (own or as moderator)."""
     return can_delete_own_message(user, message) or can_moderate_message(user, message)
+
+
+@transaction.atomic
+def get_or_create_direct_dialog(user, target_user):
+    if user.id == target_user.id:
+        raise ValidationError("You cannot create a direct dialog with yourself.")
+
+    if not are_friends(user, target_user):
+        raise ValidationError("Direct dialog is allowed only between friends.")
+
+    if is_user_banned(user, target_user):
+        raise ValidationError("Cannot create direct dialog because one user banned the other.")
+
+    user1, user2 = normalize_user_pair(user, target_user)
+
+    existing = Room.objects.filter(
+        is_direct=True,
+        dm_user1=user1,
+        dm_user2=user2,
+    ).first()
+    if existing:
+        return existing, False
+
+    try:
+        room = Room.objects.create(
+            name=f"dm:{user1.id}:{user2.id}",
+            description=None,
+            visibility=Room.Visibility.PRIVATE,
+            owner=user1,
+            is_direct=True,
+            dm_user1=user1,
+            dm_user2=user2,
+        )
+    except IntegrityError:
+        room = Room.objects.get(
+            is_direct=True,
+            dm_user1=user1,
+            dm_user2=user2,
+        )
+        return room, False
+
+    RoomMembership.objects.create(
+        room=room,
+        user=user1,
+        role=RoomMembership.Role.OWNER,
+    )
+    RoomMembership.objects.create(
+        room=room,
+        user=user2,
+        role=RoomMembership.Role.MEMBER,
+    )
+
+    return room, True

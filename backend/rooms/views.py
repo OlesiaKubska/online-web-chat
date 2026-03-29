@@ -1,8 +1,10 @@
 from django.db.models import Q
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.utils.dateparse import parse_datetime
 from django.shortcuts import get_object_or_404
+from django.contrib.auth import get_user_model
 
 from rest_framework import generics, status
 from rest_framework.parsers import MultiPartParser, FormParser
@@ -15,6 +17,7 @@ from .models import Room, RoomMembership, Message, RoomBan, MessageAttachment
 from .serializers import (
     RoomSerializer,
     CreateRoomSerializer,
+    DirectDialogCreateSerializer,
     MessageSerializer,
     CreateMessageSerializer,
     UpdateMessageSerializer,
@@ -60,7 +63,8 @@ class PublicRoomListView(generics.ListAPIView):
 
     def get_queryset(self):
         queryset = Room.objects.filter(
-            visibility=Room.Visibility.PUBLIC
+            visibility=Room.Visibility.PUBLIC,
+            is_direct=False,
         ).select_related('owner').prefetch_related('memberships')
 
         search = self.request.query_params.get('search')
@@ -79,8 +83,51 @@ class MyRoomListView(generics.ListAPIView):
 
     def get_queryset(self):
         return Room.objects.filter(
-            memberships__user=self.request.user
+            memberships__user=self.request.user,
+            is_direct=False,
         ).select_related('owner').prefetch_related('memberships').distinct()
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class DirectDialogListView(generics.ListAPIView):
+    serializer_class = RoomSerializer
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [CsrfExemptSessionAuthentication]
+
+    def get_queryset(self):
+        return Room.objects.filter(
+            is_direct=True,
+            memberships__user=self.request.user,
+        ).select_related('owner', 'dm_user1', 'dm_user2').prefetch_related('memberships').distinct()
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class DirectDialogCreateOrGetView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [CsrfExemptSessionAuthentication]
+
+    def post(self, request):
+        serializer = DirectDialogCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        target_user_id = serializer.validated_data['user_id']
+        User = get_user_model()
+
+        try:
+            target_user = User.objects.get(pk=target_user_id)
+        except User.DoesNotExist:
+            return Response({'detail': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        from .services import get_or_create_direct_dialog
+
+        try:
+            room, created = get_or_create_direct_dialog(request.user, target_user)
+        except DjangoValidationError as exc:
+            return Response({'detail': exc.message}, status=status.HTTP_400_BAD_REQUEST)
+
+        output = RoomSerializer(room, context={'request': request})
+        response_status = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+        return Response(output.data, status=response_status)
 
 
 class RoomDetailView(generics.RetrieveAPIView):

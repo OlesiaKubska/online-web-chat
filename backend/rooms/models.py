@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.db.models import UniqueConstraint
+from django.db.models import UniqueConstraint, Q, F
 from django.db.models.functions import Lower
 
 
@@ -22,15 +22,64 @@ class Room(models.Model):
         on_delete=models.CASCADE,
         related_name='owned_rooms',
     )
+    is_direct = models.BooleanField(default=False)
+    dm_user1 = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='direct_rooms_as_user1',
+        null=True,
+        blank=True,
+    )
+    dm_user2 = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='direct_rooms_as_user2',
+        null=True,
+        blank=True,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def clean(self):
+        if not self.is_direct:
+            return
+
+        if self.visibility != self.Visibility.PRIVATE:
+            raise ValidationError("Direct dialogs must be private.")
+
+        if not self.dm_user1_id or not self.dm_user2_id:
+            raise ValidationError("Direct dialogs must have exactly two participants.")
+
+        if self.dm_user1_id == self.dm_user2_id:
+            raise ValidationError("Direct dialog participants must be different users.")
+
+        if self.dm_user1_id > self.dm_user2_id:
+            raise ValidationError("Direct dialog users must be stored in sorted order.")
+
+    def save(self, *args, **kwargs):
+        if self.is_direct and self.dm_user1_id and self.dm_user2_id and self.dm_user1_id > self.dm_user2_id:
+            self.dm_user1_id, self.dm_user2_id = self.dm_user2_id, self.dm_user1_id
+        super().save(*args, **kwargs)
 
     class Meta:
         constraints = [
             UniqueConstraint(
                 Lower('name'),
                 name='unique_room_name_case_insensitive',
-            )
+            ),
+            models.CheckConstraint(
+                condition=Q(is_direct=False) | (Q(dm_user1__isnull=False) & Q(dm_user2__isnull=False)),
+                name='direct_room_requires_two_users',
+            ),
+            models.CheckConstraint(
+                condition=Q(is_direct=False) | Q(dm_user1__lt=F('dm_user2')),
+                name='direct_room_sorted_users',
+            ),
+            models.UniqueConstraint(
+                fields=['dm_user1', 'dm_user2'],
+                condition=Q(is_direct=True),
+                name='unique_direct_room_pair',
+            ),
         ]
         ordering = ['-created_at']
 

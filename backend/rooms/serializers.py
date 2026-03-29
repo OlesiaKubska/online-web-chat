@@ -8,6 +8,9 @@ class RoomSerializer(serializers.ModelSerializer):
     member_count = serializers.SerializerMethodField()
     joined = serializers.SerializerMethodField()
     my_role = serializers.SerializerMethodField()
+    is_direct = serializers.BooleanField(read_only=True)
+    dm_user1 = serializers.IntegerField(source='dm_user1_id', read_only=True)
+    dm_user2 = serializers.IntegerField(source='dm_user2_id', read_only=True)
 
     class Meta:
         model = Room
@@ -18,6 +21,9 @@ class RoomSerializer(serializers.ModelSerializer):
             'visibility',
             'owner',
             'owner_username',
+            'is_direct',
+            'dm_user1',
+            'dm_user2',
             'member_count',
             'joined',
             'my_role',
@@ -226,3 +232,7 @@ class CreateRoomBanSerializer(serializers.Serializer):
             banned_by=banned_by,
             reason=validated_data.get('reason', ''),
         )
+
+
+class DirectDialogCreateSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField(min_value=1)
