@@ -12,7 +12,6 @@ import {
   editMessage,
   deleteMessage,
 } from "../lib/messagesApi";
-import { ApiError } from "../lib/api";
 import type { Room } from "../types/room";
 import type { Message } from "../types/message";
 import { LoadingState } from "../components/rooms/LoadingState";
@@ -22,6 +21,7 @@ import { TopBar } from "../components/rooms/TopBar";
 import { RoomHero } from "../components/rooms/RoomHero";
 import { RoomSidebar } from "../components/rooms/RoomSidebar";
 import { ChatPanel } from "../components/rooms/ChatPanel";
+import { ApiError } from "../lib/api";
 
 export default function RoomDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -199,7 +199,7 @@ export default function RoomDetailPage() {
       setMessagesError(null);
       const messagesData = await getRoomMessages(roomId);
       setMessages(messagesData);
-    } catch (err) {
+    } catch (err: unknown) {
       if (err instanceof ApiError && err.status === 403) {
         setMessages([]);
         setMessagesError(null);
@@ -224,7 +224,7 @@ export default function RoomDetailPage() {
 
       await joinRoom(room.id);
       await fetchRoom(room.id, false);
-    } catch (err) {
+    } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to join room");
     } finally {
       setActionLoading(false);
@@ -238,7 +238,7 @@ export default function RoomDetailPage() {
       setActionLoading(true);
       await leaveRoom(room.id);
       await fetchRoom(room.id, false);
-    } catch (err) {
+    } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to leave room");
     } finally {
       setActionLoading(false);
@@ -272,7 +272,7 @@ export default function RoomDetailPage() {
       );
       setEditingMessageId(null);
       setEditingMessageContent("");
-    } catch (err) {
+    } catch (err: unknown) {
       setMessagesError(
         err instanceof Error ? err.message : "Failed to save edited message",
       );
@@ -289,7 +289,7 @@ export default function RoomDetailPage() {
     try {
       await deleteMessage(messageId);
       setMessages((prev) => prev.filter((m) => m.id !== messageId));
-    } catch (err) {
+    } catch (err: unknown) {
       setMessagesError(
         err instanceof Error ? err.message : "Failed to delete message",
       );
@@ -327,7 +327,7 @@ export default function RoomDetailPage() {
 
       setMessageContent("");
       setReplyTo(null);
-    } catch (err) {
+    } catch (err: unknown) {
       setMessagesError(
         err instanceof Error ? err.message : "Failed to send message",
       );

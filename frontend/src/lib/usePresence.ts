@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { sendPresenceHeartbeat } from './api'
-import type { PresenceHeartbeatPayload } from './api'
+import { sendPresenceHeartbeat, type PresenceHeartbeatPayload } from './api'
 
 const SESSION_ID_KEY = 'presence_session_id'
 const TAB_ID_KEY = 'presence_tab_id'

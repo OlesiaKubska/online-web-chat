@@ -3,7 +3,7 @@ import type { MessageAttachment } from "../types/room"
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'
 
 export class ApiError extends Error {
-    status: number
+  status: number
 
   constructor(status: number, message: string) {
     super(message)
@@ -105,4 +105,16 @@ export async function uploadMessageAttachment(
   }
 
   return data
+}
+
+export interface ChangePasswordPayload {
+  old_password: string
+  new_password: string
+}
+
+export async function changePassword(payload: ChangePasswordPayload): Promise<{ message: string }> {
+  return apiRequest<{ message: string }>('/auth/change-password/', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
 }
