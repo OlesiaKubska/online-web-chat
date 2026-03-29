@@ -93,7 +93,7 @@ export default function HomePage() {
   return (
     <PageShell>
       <div style={{ maxWidth: "1280px", margin: "0 auto" }}>
-        <TopBar onBack={() => navigate("/rooms")} />
+        <TopBar />
 
         <header style={heroCardStyle}>
           <div

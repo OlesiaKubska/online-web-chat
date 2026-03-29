@@ -183,7 +183,7 @@ export default function FriendsPage() {
     return (
       <PageShell>
         <div style={{ maxWidth: "1280px", margin: "0 auto" }}>
-          <TopBar onBack={() => navigate("/rooms")} />
+          <TopBar />
           <Panel>
             <div style={{ color: palette.textSoft, fontSize: "16px" }}>
               Loading friends...
@@ -197,7 +197,7 @@ export default function FriendsPage() {
   return (
     <PageShell>
       <div style={{ maxWidth: "1280px", margin: "0 auto" }}>
-        <TopBar onBack={() => navigate("/rooms")} />
+        <TopBar />
 
         <FriendsHero />
 
