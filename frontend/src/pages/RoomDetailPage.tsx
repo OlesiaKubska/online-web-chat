@@ -69,10 +69,21 @@ export default function RoomDetailPage() {
   }, [id]);
 
   useEffect(() => {
-    if (room?.id) {
-      fetchMessages(room.id);
+    if (room?.joined) return;
+
+    setMessages([]);
+    setMessagesError(null);
+    setMessagesLoading(false);
+    setWsStatus("disconnected");
+  }, [room?.joined]);
+
+  useEffect(() => {
+    if (!room?.id || !room.joined) {
+      return;
     }
-  }, [room?.id]);
+
+    fetchMessages(room.id);
+  }, [room?.id, room?.joined]);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -90,6 +101,7 @@ export default function RoomDetailPage() {
   // WebSocket connection effect
   useEffect(() => {
     if (!room?.id) return;
+    if (!room.joined) return; // Only connect if user has joined the room
 
     const wsBaseUrl = import.meta.env.VITE_WS_BASE_URL || "ws://localhost:8000";
     const wsUrl = `${wsBaseUrl}/ws/rooms/${room.id}/`;
@@ -144,7 +156,7 @@ export default function RoomDetailPage() {
     return () => {
       socket.close();
     };
-  }, [room?.id, reconnectKey]);
+  }, [room?.id, reconnectKey, room?.joined]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -188,6 +200,12 @@ export default function RoomDetailPage() {
       const messagesData = await getRoomMessages(roomId);
       setMessages(messagesData);
     } catch (err) {
+      if (err instanceof ApiError && err.status === 403) {
+        setMessages([]);
+        setMessagesError(null);
+        return;
+      }
+
       setMessagesError(
         err instanceof Error ? err.message : "Failed to load messages",
       );
@@ -201,6 +219,9 @@ export default function RoomDetailPage() {
 
     try {
       setActionLoading(true);
+      setError(null);
+      setMessagesError(null);
+
       await joinRoom(room.id);
       await fetchRoom(room.id, false);
     } catch (err) {

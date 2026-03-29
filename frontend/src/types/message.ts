@@ -1,3 +1,5 @@
+import type { MessageAttachment } from "./room"
+
 export interface ReplyToMessage {
   id: number
   content: string
@@ -16,6 +18,7 @@ export interface Message {
   edited: boolean
   created_at: string
   updated_at: string
+  attachments: MessageAttachment[]
 }
 
 export interface SendMessagePayload {

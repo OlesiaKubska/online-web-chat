@@ -16,3 +16,11 @@ export interface CreateRoomPayload {
   description?: string
   visibility: 'public' | 'private'
 }
+
+export interface MessageAttachment {
+  id: number
+  original_name: string
+  comment: string
+  file_url: string
+  created_at: string
+}

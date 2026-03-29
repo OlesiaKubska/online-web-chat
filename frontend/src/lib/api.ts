@@ -1,3 +1,5 @@
+import type { MessageAttachment } from "../types/room"
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'
 
 export class ApiError extends Error {
@@ -79,4 +81,28 @@ export async function sendPresenceHeartbeat(payload: PresenceHeartbeatPayload): 
     method: 'POST',
     body: JSON.stringify(payload),
   })
+}
+
+export async function uploadMessageAttachment(
+  messageId: number,
+  file: File,
+  comment = ''
+): Promise<MessageAttachment> {
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('comment', comment)
+
+  const response = await fetch(`${API_BASE_URL}/room-messages/${messageId}/attachments/`, {
+    method: 'POST',
+    credentials: 'include',
+    body: formData,
+  })
+
+  const data = await response.json()
+
+  if (!response.ok) {
+    throw new ApiError(response.status, extractErrorMessage(data))
+  }
+
+  return data
 }

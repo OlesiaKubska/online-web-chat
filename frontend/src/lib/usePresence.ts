@@ -31,18 +31,14 @@ function getOrCreateTabId(): string {
 export function usePresence() {
   const [status, setStatus] = useState<PresenceStatus>('online')
 
-  // ✅ stable values (no refs → no lint errors)
   const [sessionId] = useState(() => getOrCreateSessionId())
   const [tabId] = useState(() => getOrCreateTabId())
 
-  // ✅ refs only for timers
   const heartbeatIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const afkTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // ✅ latest heartbeat function (avoids stale closure)
   const sendHeartbeatRef = useRef<() => Promise<void>>(async () => {})
 
-  // update heartbeat function when status changes
   useEffect(() => {
     sendHeartbeatRef.current = async () => {
       const payload: PresenceHeartbeatPayload = {

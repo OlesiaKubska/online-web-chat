@@ -465,23 +465,94 @@ export function ChatPanel({
                     </div>
                   </div>
                 ) : (
-                  <div
-                    style={{
-                      color: palette.textSoft,
-                      whiteSpace: "pre-wrap",
-                      lineHeight: 1.5,
-                    }}
-                  >
-                    {message.content}
+                  <div>
+                    <div
+                      style={{
+                        color: palette.textSoft,
+                        whiteSpace: "pre-wrap",
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      {message.content}
+                    </div>
+
+                    {message.attachments?.length > 0 && (
+                      <div
+                        style={{
+                          marginTop: "10px",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "8px",
+                        }}
+                      >
+                        {message.attachments.map((att) => {
+                          const isImage =
+                            att.file_url.match(/\.(jpeg|jpg|gif|png|svg)$/i) !==
+                            null;
+
+                          return (
+                            <div
+                              key={att.id}
+                              style={{
+                                padding: "10px 12px",
+                                borderRadius: "10px",
+                                border: `1px solid ${palette.border}`,
+                                backgroundColor: "rgba(255,255,255,0.03)",
+                              }}
+                            >
+                              <a
+                                href={att.file_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{
+                                  color: palette.secondary,
+                                  fontWeight: 600,
+                                  textDecoration: "none",
+                                }}
+                              >
+                                {att.original_name}
+                              </a>
+
+                              {att.comment && (
+                                <div
+                                  style={{
+                                    marginTop: "6px",
+                                    fontSize: "14px",
+                                    color: palette.textMuted,
+                                    whiteSpace: "pre-wrap",
+                                  }}
+                                >
+                                  {att.comment}
+                                </div>
+                              )}
+
+                              {isImage ? (
+                                <div style={{ marginTop: "10px" }}>
+                                  <img
+                                    src={att.file_url}
+                                    alt={att.original_name}
+                                    style={{
+                                      maxWidth: "220px",
+                                      width: "100%",
+                                      borderRadius: "8px",
+                                      border: `1px solid ${palette.border}`,
+                                    }}
+                                  />
+                                </div>
+                              ) : null}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 )}
+                <div ref={messagesEndRef} />
               </div>
             ))}
-            <div ref={messagesEndRef} />
           </div>
         )}
       </div>
-
       <div
         style={{
           marginTop: "18px",
