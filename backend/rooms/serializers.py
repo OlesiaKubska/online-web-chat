@@ -11,6 +11,8 @@ class RoomSerializer(serializers.ModelSerializer):
     is_direct = serializers.BooleanField(read_only=True)
     dm_user1 = serializers.IntegerField(source='dm_user1_id', read_only=True)
     dm_user2 = serializers.IntegerField(source='dm_user2_id', read_only=True)
+    dm_user1_username = serializers.CharField(source='dm_user1.username', read_only=True, allow_null=True)
+    dm_user2_username = serializers.CharField(source='dm_user2.username', read_only=True, allow_null=True)
 
     class Meta:
         model = Room
@@ -24,6 +26,8 @@ class RoomSerializer(serializers.ModelSerializer):
             'is_direct',
             'dm_user1',
             'dm_user2',
+               'dm_user1_username',
+               'dm_user2_username',
             'member_count',
             'joined',
             'my_role',

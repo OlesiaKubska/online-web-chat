@@ -1,5 +1,6 @@
 import { apiRequest } from './api'
 import type { Friend, FriendRequest, SendFriendRequestPayload } from '../types/friends'
+import type { Room } from '../types/room'
 
 export async function getFriends(): Promise<Friend[]> {
   return apiRequest<Friend[]>('/friends/')
@@ -55,5 +56,16 @@ export async function banUser(userId: number): Promise<void> {
 export async function unbanUser(userId: number): Promise<void> {
   return apiRequest<void>(`/friends/ban/${userId}/`, {
     method: 'DELETE',
+  })
+}
+
+export async function getDirectDialogs(): Promise<Room[]> {
+  return apiRequest<Room[]>('/rooms/dialogs/')
+}
+
+export async function createOrGetDialog(userId: number): Promise<Room> {
+  return apiRequest<Room>('/rooms/dialogs/create-or-get/', {
+    method: 'POST',
+    body: JSON.stringify({ user_id: userId }),
   })
 }

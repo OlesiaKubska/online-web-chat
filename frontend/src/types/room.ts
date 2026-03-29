@@ -9,6 +9,11 @@ export interface Room {
   joined: boolean
   my_role: 'owner' | 'admin' | 'member' | null
   created_at: string
+  is_direct: boolean
+  dm_user1: number | null
+  dm_user2: number | null
+  dm_user1_username: string | null
+  dm_user2_username: string | null
 }
 
 export interface CreateRoomPayload {

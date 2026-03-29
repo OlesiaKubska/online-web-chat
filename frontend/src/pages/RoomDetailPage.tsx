@@ -374,7 +374,7 @@ export default function RoomDetailPage() {
       <div style={{ maxWidth: "1280px", margin: "0 auto" }}>
         <TopBar onBack={() => navigate("/rooms")} />
 
-        <RoomHero room={room} />
+        <RoomHero room={room} currentUserId={currentUserId} />
 
         <div
           style={{
