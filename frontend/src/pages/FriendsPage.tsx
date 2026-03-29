@@ -2,10 +2,12 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   acceptFriendRequest,
+  banUser,
   cancelFriendRequest,
   getFriends,
   getIncomingFriendRequests,
   getOutgoingFriendRequests,
+  removeFriend,
   rejectFriendRequest,
   sendFriendRequestByUsername,
 } from "../lib/friendsApi";
@@ -49,6 +51,9 @@ export default function FriendsPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
+  const [friendActionLoadingKey, setFriendActionLoadingKey] = useState<
+    string | null
+  >(null);
 
   const [error, setError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -130,6 +135,25 @@ export default function FriendsPage() {
       setError(getErrorMessage(err, "Action failed"));
     } finally {
       setActionLoadingId(null);
+    }
+  };
+
+  const runFriendAction = async (
+    userId: number,
+    actionName: "remove" | "ban",
+    action: () => Promise<unknown>,
+  ) => {
+    const loadingKey = `${actionName}-${userId}`;
+
+    try {
+      setFriendActionLoadingKey(loadingKey);
+      setError(null);
+      await action();
+      await fetchData();
+    } catch (err) {
+      setError(getErrorMessage(err, "Action failed"));
+    } finally {
+      setFriendActionLoadingKey(null);
     }
   };
 
@@ -478,6 +502,62 @@ export default function FriendsPage() {
                         }}
                       >
                         {friend.email}
+                      </div>
+
+                      <div
+                        style={{
+                          marginTop: "12px",
+                          display: "flex",
+                          gap: "8px",
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() =>
+                            runFriendAction(friend.id, "remove", () =>
+                              removeFriend(friend.id),
+                            )
+                          }
+                          disabled={
+                            friendActionLoadingKey === `remove-${friend.id}`
+                          }
+                          style={{
+                            ...secondaryButtonStyle,
+                            opacity:
+                              friendActionLoadingKey === `remove-${friend.id}`
+                                ? 0.7
+                                : 1,
+                          }}
+                        >
+                          {friendActionLoadingKey === `remove-${friend.id}`
+                            ? "Removing..."
+                            : "Remove friend"}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            runFriendAction(friend.id, "ban", () =>
+                              banUser(friend.id),
+                            )
+                          }
+                          disabled={
+                            friendActionLoadingKey === `ban-${friend.id}`
+                          }
+                          style={{
+                            ...dangerButtonStyle,
+                            width: "auto",
+                            opacity:
+                              friendActionLoadingKey === `ban-${friend.id}`
+                                ? 0.7
+                                : 1,
+                          }}
+                        >
+                          {friendActionLoadingKey === `ban-${friend.id}`
+                            ? "Banning..."
+                            : "Ban user"}
+                        </button>
                       </div>
                     </Panel>
                   ))}

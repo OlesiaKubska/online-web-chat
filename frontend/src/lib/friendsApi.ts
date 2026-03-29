@@ -5,6 +5,12 @@ export async function getFriends(): Promise<Friend[]> {
   return apiRequest<Friend[]>('/friends/')
 }
 
+export async function removeFriend(userId: number): Promise<void> {
+  return apiRequest<void>(`/friends/${userId}/`, {
+    method: 'DELETE',
+  })
+}
+
 export async function getIncomingFriendRequests(): Promise<FriendRequest[]> {
   return apiRequest<FriendRequest[]>('/friends/requests/incoming/')
 }
