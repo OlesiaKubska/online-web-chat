@@ -1,57 +1,81 @@
-# Online Web Chat
+# Classic Chat App
 
-Fullstack chat application built with **Django**, **React**, and **PostgreSQL** using **Docker**.
+Full-stack chat application for coursework/homework submission.
 
----
+The project includes authentication, rooms, friends, and direct dialogs (DM) with real-time room messaging via WebSocket.
 
-## 🚀 Tech Stack
+## Short Description
 
-- **Backend:** Django, Django REST Framework
-- **Frontend:** React + Vite + TypeScript
-- **Database:** PostgreSQL
-- **DevOps:** Docker, Docker Compose
+Classic Chat App is a Dockerized web chat system built with Django + DRF + Channels on the backend and React + TypeScript + Vite on the frontend. It supports session-based authentication, room chat, friendship workflows, direct dialogs between friends, and presence heartbeat.
 
----
-
-## 📦 Features (MVP)
+## Features Already Implemented
 
 ### Authentication
 
-- User registration (email, username, password)
-- Login / Logout
-- Persistent session (cookies)
+- User registration
+- User login/logout
 - Current user endpoint (`/api/auth/me/`)
+- Change password endpoint
+- Session/cookie-based auth across frontend and backend
 
-### Frontend
+### Rooms
 
-- Register page
-- Login page
-- Home page (current user)
-- Basic route protection
+- Create room (public/private)
+- List public rooms
+- List my rooms
+- Join/leave room
+- Room detail
+- Room messages (list/create)
+- Edit/delete own messages
+- Room-level moderation endpoints for bans/member removal exist in backend
+- Message attachments upload endpoint exists in backend
 
-### Backend API
+### Real-time Messaging (WebSocket)
 
-- REST API (DRF)
-- Session-based authentication
-- PostgreSQL integration
+- WebSocket room channel: `/ws/rooms/<room_id>/`
+- Authenticated room members can send and receive real-time messages
+- REST fallback for sending messages exists in frontend
 
----
+### Friends + Direct Dialogs
 
-## ⚙️ Setup (Docker)
+- Send friend request (by username)
+- Incoming/outgoing request lists
+- Accept/reject/cancel friend request
+- Friends list
+- Remove friend
+- User ban/unban endpoints in backend
+- Direct dialog create-or-get
+- Direct dialogs list
+- Open DM in existing room detail/chat page
+
+### Presence
+
+- Heartbeat endpoint
+- Presence users endpoint
+- Frontend heartbeat hook (`usePresence`) active in protected layout
+
+## Tech Stack
+
+- Backend: Django 6, Django REST Framework, Channels, Daphne
+- Frontend: React 19, TypeScript, Vite, React Router
+- Database: PostgreSQL (Docker service)
+- WebSockets: Django Channels (`InMemoryChannelLayer` in current settings)
+- Docker: Docker + Docker Compose
+
+## How to Run Locally
 
 ### 1. Clone repository
 
 ```bash
-git clone https://github.com/your-username/online-web-chat.git
+git clone <your-repo-url>
 cd online-web-chat
-
 ```
 
-### 2. Create .env file
+### 2. Create `.env` in project root
 
-Create `.env` in root:
+Example values:
 
-```
+```env
 POSTGRES_DB=chatdb
 POSTGRES_USER=chatuser
 POSTGRES_PASSWORD=chatpass
@@ -63,91 +87,92 @@ DJANGO_DEBUG=1
 DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,backend
 ```
 
-### 3. Run project
+### 3. Start from project root
 
-`docker compose up --build`
+Exact startup command:
 
-### 4. Run migrations (first time only)
-
+```bash
+docker compose up --build
 ```
+
+### 4. Apply migrations (first run or after model changes)
+
+```bash
 docker compose exec backend python manage.py migrate
 ```
 
-### 5. Create superuser (optional)
+### 5. Optional: create admin user
 
-```
+```bash
 docker compose exec backend python manage.py createsuperuser
 ```
 
----
+## Access URLs
 
-## 🌐 Services
+- Frontend: `http://localhost:5173`
+- Backend API base: `http://localhost:8000/api/`
+- Django admin: `http://localhost:8000/admin/`
+- Health endpoint: `http://localhost:8000/api/`
 
-- **Frontend:** `http://localhost:5173`
-- **Backend API:** `http://localhost:8000`
-- **Admin panel:** `http://localhost:8000/admin/`
-- **Health check:** `http://localhost:8000/api/health/`
+## Authentication and Session Notes
 
----
+- The backend uses DRF SessionAuthentication.
+- Login creates a session cookie used by subsequent API calls.
+- Frontend requests are configured to send cookies (`credentials: include`).
+- Protected frontend routes are wrapped with `ProtectedRoute`.
 
-## 🔑 API Endpoints
+## Migration Notes
 
-### Auth
+- Migrations are versioned in each Django app under `migrations/`.
+- Do not skip `manage.py migrate` when starting on a clean environment.
+- If model changes are introduced, create and commit new migrations before submission.
 
-- **POST** `/api/auth/register/` — register new user
-- **POST** `/api/auth/login/` — login (creates session)
-- **POST** `/api/auth/logout/` — logout current session
-- **GET** `/api/auth/me/` — current authenticated user
+## Project Structure Overview
 
----
-
-## 🐳 Project Structure
-
-```
+```text
 online-web-chat/
-│
-├── backend/        # Django + DRF
-├── frontend/       # React + Vite + TS
 ├── docker-compose.yml
-├── .env
-└── README.md
+├── README.md
+├── backend/
+│   ├── manage.py
+│   ├── config/          # Django settings, urls, asgi/wsgi
+│   ├── accounts/        # register/login/logout/me/change-password
+│   ├── rooms/           # rooms, messages, moderation, websocket consumer
+│   ├── friends/         # friend requests, friendships, user bans
+│   └── core/            # health + presence APIs
+└── frontend/
+	├── src/
+	│   ├── App.tsx
+	│   ├── pages/       # Home, Login, Register, Rooms, RoomDetail, Friends
+	│   ├── components/  # rooms, friends, navigation shared UI
+	│   ├── lib/         # API clients + presence hook
+	│   └── types/       # TypeScript types
+	└── package.json
 ```
----
 
-## 🧪 Development Notes
+## Partially Implemented / Not Implemented Yet
 
-- Backend runs on port **8000**
-- Frontend runs on port **5173**
-- Uses **session authentication (cookies)**
-- Frontend requests must include:
+- Moderation UI is incomplete on frontend (some moderation endpoints exist only on backend).
+- Banned-users management UI is limited.
+- Presence API exists, but full presence visualization/UX is minimal.
+- WebSocket channel layer uses in-memory backend (good for local dev, not for multi-instance production).
+- No advanced notifications/unread counters yet.
 
-```
-credentials: "include"
-```
----
+## Known Limitations
 
-## ⚠️ Important Notes
+- Current CORS setup is permissive for local development.
+- Channel layer is in-memory, so scaling WebSocket across multiple backend instances is not ready.
+- Error handling and UX polish vary between pages.
+- Automated test coverage exists for key backend flows, but full end-to-end frontend coverage is not included.
 
-- CORS and cookies must be enabled for frontend-backend communication
-- PostgreSQL runs inside Docker container
-- Do not forget to run migrations after first startup
+## Future Improvements
 
----
+- Add Redis channel layer for production-grade WebSocket scaling.
+- Extend moderation UI (room bans, member management, role controls).
+- Add notifications, unread counters, and better presence indicators.
+- Add stronger frontend validation and unified error components.
+- Add CI checks and broader automated tests (frontend + integration).
 
-## 📌 Future Features (in progress)
+## Author
 
-- Chat rooms (public/private)
-- Real-time messaging (WebSocket)
-- Personal messages (DM)
-- Friends system
-- File & image upload
-- Moderation (admins, bans)
-- Notifications & unread indicators
-
----
-
-## 🧑‍💻 Author
-
-**Olesia Kubska**
-
----
+Olesia Kubska
