@@ -29,3 +29,14 @@ export interface MessageAttachment {
   file_url: string
   created_at: string
 }
+
+export interface RoomBan {
+  id: number
+  room: number
+  banned_user: number
+  banned_username: string
+  banned_by: number
+  banned_by_username: string
+  reason: string
+  created_at: string
+}

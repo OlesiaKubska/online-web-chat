@@ -5,6 +5,11 @@ import {
   leaveRoom,
   joinRoom,
   getCurrentUser,
+  banRoomMember,
+  removeRoomMember,
+  getRoomBannedUsers,
+  unbanRoomUser,
+  deleteRoom,
 } from "../lib/roomsApi";
 import {
   getRoomMessages,
@@ -12,7 +17,7 @@ import {
   editMessage,
   deleteMessage,
 } from "../lib/messagesApi";
-import type { Room } from "../types/room";
+import type { Room, RoomBan } from "../types/room";
 import type { Message } from "../types/message";
 import { LoadingState } from "../components/rooms/LoadingState";
 import { ErrorState } from "../components/rooms/ErrorState";
@@ -21,7 +26,11 @@ import { TopBar } from "../components/rooms/TopBar";
 import { RoomHero } from "../components/rooms/RoomHero";
 import { RoomSidebar } from "../components/rooms/RoomSidebar";
 import { ChatPanel } from "../components/rooms/ChatPanel";
-import { ApiError } from "../lib/api";
+import {
+  ApiError,
+  getUsersPresence,
+  type UserPresenceStatus,
+} from "../lib/api";
 
 export default function RoomDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -49,6 +58,17 @@ export default function RoomDetailPage() {
   const [wsStatus, setWsStatus] = useState<
     "connecting" | "connected" | "disconnected"
   >("disconnected");
+
+  const [bannedUsers, setBannedUsers] = useState<RoomBan[]>([]);
+  const [showBannedUsers, setShowBannedUsers] = useState(false);
+  const [bansLoading, setBansLoading] = useState(false);
+  const [moderationActionLoadingKey, setModerationActionLoadingKey] = useState<
+    string | null
+  >(null);
+  const [presenceByUserId, setPresenceByUserId] = useState<
+    Record<number, UserPresenceStatus>
+  >({});
+
   const isMountedRef = useRef(true);
 
   useEffect(() => {
@@ -84,6 +104,52 @@ export default function RoomDetailPage() {
 
     fetchMessages(room.id);
   }, [room?.id, room?.joined]);
+
+  useEffect(() => {
+    if (!room?.id || !room.joined) {
+      setPresenceByUserId({});
+      return;
+    }
+
+    const userIds = Array.from(
+      new Set(messages.map((message) => message.user)),
+    );
+    if (userIds.length === 0) {
+      setPresenceByUserId({});
+      return;
+    }
+
+    let cancelled = false;
+
+    const fetchPresence = async () => {
+      try {
+        const statuses = await getUsersPresence(userIds);
+        if (cancelled) {
+          return;
+        }
+
+        const map: Record<number, UserPresenceStatus> = {};
+        statuses.forEach((statusItem) => {
+          map[statusItem.user_id] = statusItem.status;
+        });
+        setPresenceByUserId(map);
+      } catch {
+        if (!cancelled) {
+          setPresenceByUserId({});
+        }
+      }
+    };
+
+    void fetchPresence();
+    const intervalId = window.setInterval(() => {
+      void fetchPresence();
+    }, 15000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [room?.id, room?.joined, messages]);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -296,6 +362,105 @@ export default function RoomDetailPage() {
     }
   };
 
+  const loadBannedUsers = async (roomId: number) => {
+    try {
+      setBansLoading(true);
+      const bans = await getRoomBannedUsers(roomId);
+      setBannedUsers(bans);
+    } catch (err: unknown) {
+      setMessagesError(
+        err instanceof Error ? err.message : "Failed to load banned users",
+      );
+    } finally {
+      setBansLoading(false);
+    }
+  };
+
+  const runModerationAction = async (
+    loadingKey: string,
+    action: () => Promise<unknown>,
+  ) => {
+    if (!room) {
+      return;
+    }
+
+    try {
+      setModerationActionLoadingKey(loadingKey);
+      setMessagesError(null);
+      await action();
+      await fetchRoom(room.id, false);
+      if (showBannedUsers) {
+        await loadBannedUsers(room.id);
+      }
+    } catch (err: unknown) {
+      setMessagesError(
+        err instanceof Error ? err.message : "Moderation failed",
+      );
+    } finally {
+      setModerationActionLoadingKey(null);
+    }
+  };
+
+  const handleBanMember = async (userId: number) => {
+    if (!room) {
+      return;
+    }
+    await runModerationAction(`ban-${userId}`, () =>
+      banRoomMember(room.id, userId, "Banned by moderator"),
+    );
+  };
+
+  const handleRemoveMember = async (userId: number) => {
+    if (!room) {
+      return;
+    }
+    await runModerationAction(`remove-${userId}`, () =>
+      removeRoomMember(room.id, userId, "Removed by moderator"),
+    );
+  };
+
+  const handleToggleBannedUsers = async () => {
+    if (!room) {
+      return;
+    }
+
+    const next = !showBannedUsers;
+    setShowBannedUsers(next);
+    if (next) {
+      await loadBannedUsers(room.id);
+    }
+  };
+
+  const handleUnbanUser = async (userId: number) => {
+    if (!room) {
+      return;
+    }
+    await runModerationAction(`unban-${userId}`, () =>
+      unbanRoomUser(room.id, userId),
+    );
+  };
+
+  const handleDeleteRoom = async () => {
+    if (!room) {
+      return;
+    }
+
+    if (!window.confirm("Delete this room permanently?")) {
+      return;
+    }
+
+    try {
+      setModerationActionLoadingKey("delete-room");
+      await deleteRoom(room.id);
+      navigate("/rooms");
+    } catch (err: unknown) {
+      setMessagesError(
+        err instanceof Error ? err.message : "Failed to delete room",
+      );
+      setModerationActionLoadingKey(null);
+    }
+  };
+
   const handleSendMessage = async () => {
     if (!room) return;
 
@@ -369,6 +534,9 @@ export default function RoomDetailPage() {
     );
   }
 
+  const isModerator = room.my_role === "owner" || room.my_role === "admin";
+  const isOwner = room.my_role === "owner";
+
   return (
     <PageShell>
       <div style={{ maxWidth: "1280px", margin: "0 auto" }}>
@@ -387,9 +555,18 @@ export default function RoomDetailPage() {
           <RoomSidebar
             room={room}
             actionLoading={actionLoading}
+            moderationActionLoadingKey={moderationActionLoadingKey}
+            isModerator={isModerator}
+            isOwner={isOwner}
+            showBannedUsers={showBannedUsers}
+            bannedUsers={bannedUsers}
+            bansLoading={bansLoading}
             onJoin={handleJoin}
             onLeave={handleLeave}
             onBack={() => navigate("/rooms")}
+            onToggleBannedUsers={handleToggleBannedUsers}
+            onUnbanUser={handleUnbanUser}
+            onDeleteRoom={handleDeleteRoom}
           />
 
           <main style={{ display: "grid", gap: "24px" }}>
@@ -414,6 +591,10 @@ export default function RoomDetailPage() {
               onSaveEdit={handleSaveEdit}
               editingSaving={editingSaving}
               onDeleteMessage={handleDeleteMessage}
+              onBanMember={handleBanMember}
+              onRemoveMember={handleRemoveMember}
+              moderationActionLoadingKey={moderationActionLoadingKey}
+              presenceByUserId={presenceByUserId}
               wsStatus={wsStatus}
             />
           </main>

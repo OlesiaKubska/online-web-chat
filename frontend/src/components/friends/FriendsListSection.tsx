@@ -6,12 +6,15 @@ import {
   secondaryButtonStyle,
   dangerButtonStyle,
 } from "../../styles/roomsTheme";
+import { PresenceBadge } from "../rooms/PresenceBadge";
+import type { UserPresenceStatus } from "../../lib/api";
 import type { Friend } from "../../types/friends";
 
 interface FriendsListSectionProps {
   friends: Friend[];
   messageLoadingId: number | null;
   friendActionLoadingKey: string | null;
+  presenceByUserId: Record<number, UserPresenceStatus>;
   onMessage: (friendId: number) => void;
   onRemoveFriend: (friendId: number) => void;
   onBanUser: (friendId: number) => void;
@@ -21,6 +24,7 @@ export function FriendsListSection({
   friends,
   messageLoadingId,
   friendActionLoadingKey,
+  presenceByUserId,
   onMessage,
   onRemoveFriend,
   onBanUser,
@@ -57,7 +61,17 @@ export function FriendsListSection({
         >
           {friends.map((friend) => (
             <Panel key={friend.id}>
-              <div style={{ fontWeight: 700 }}>{friend.username}</div>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  flexWrap: "wrap",
+                }}
+              >
+                <div style={{ fontWeight: 700 }}>{friend.username}</div>
+                <PresenceBadge status={presenceByUserId[friend.id]} />
+              </div>
               <div style={emailStyle}>{friend.email}</div>
 
               <div style={actionsRowStyle}>

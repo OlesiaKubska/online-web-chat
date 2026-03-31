@@ -5,11 +5,14 @@ import {
   dangerButtonStyle,
   secondaryButtonStyle,
 } from "../../styles/roomsTheme";
+import { PresenceBadge } from "../rooms/PresenceBadge";
+import type { UserPresenceStatus } from "../../lib/api";
 import type { FriendRequest } from "../../types/friends";
 
 interface IncomingRequestsSectionProps {
   incoming: FriendRequest[];
   actionLoadingId: number | null;
+  presenceByUserId: Record<number, UserPresenceStatus>;
   onAccept: (requestId: number) => void;
   onReject: (requestId: number) => void;
 }
@@ -17,6 +20,7 @@ interface IncomingRequestsSectionProps {
 export function IncomingRequestsSection({
   incoming,
   actionLoadingId,
+  presenceByUserId,
   onAccept,
   onReject,
 }: IncomingRequestsSectionProps) {
@@ -49,7 +53,21 @@ export function IncomingRequestsSection({
             <Panel key={request.id}>
               <div style={rowStyle}>
                 <div>
-                  <div style={{ fontWeight: 700 }}>{request.from_username}</div>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <div style={{ fontWeight: 700 }}>
+                      {request.from_username}
+                    </div>
+                    <PresenceBadge
+                      status={presenceByUserId[request.from_user]}
+                    />
+                  </div>
                   {request.message ? (
                     <div style={messageStyle}>{request.message}</div>
                   ) : null}

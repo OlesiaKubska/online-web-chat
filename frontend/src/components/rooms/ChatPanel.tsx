@@ -1,4 +1,5 @@
 import { useRef, useEffect } from "react";
+import type { UserPresenceStatus } from "../../lib/api";
 import type { Room } from "../../types/room";
 import type { Message } from "../../types/message";
 import {
@@ -8,6 +9,7 @@ import {
 } from "../../styles/roomsTheme";
 import { Panel } from "./Panel";
 import { MetaPill } from "./MetaPill";
+import { PresenceBadge } from "./PresenceBadge";
 
 interface ChatPanelProps {
   room: Room;
@@ -30,6 +32,10 @@ interface ChatPanelProps {
   onSaveEdit: () => void;
   editingSaving: boolean;
   onDeleteMessage: (messageId: number) => void;
+  onBanMember: (userId: number) => void;
+  onRemoveMember: (userId: number) => void;
+  moderationActionLoadingKey: string | null;
+  presenceByUserId: Record<number, UserPresenceStatus>;
   wsStatus: "connecting" | "connected" | "disconnected";
 }
 
@@ -54,11 +60,16 @@ export function ChatPanel({
   onSaveEdit,
   editingSaving,
   onDeleteMessage,
+  onBanMember,
+  onRemoveMember,
+  moderationActionLoadingKey,
+  presenceByUserId,
   wsStatus,
 }: ChatPanelProps) {
   const orderedMessages = [...messages].reverse();
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
+  const canModerateRoom = room.my_role === "owner" || room.my_role === "admin";
 
   useEffect(() => {
     const container = messagesContainerRef.current;
@@ -318,7 +329,7 @@ export function ChatPanel({
                       Edit
                     </button>
                   )}
-                  {currentUserId === message.user && (
+                  {(currentUserId === message.user || canModerateRoom) && (
                     <button
                       type="button"
                       onClick={() => onDeleteMessage(message.id)}
@@ -346,9 +357,67 @@ export function ChatPanel({
                         color: palette.danger,
                       }}
                     >
-                      Delete
+                      {currentUserId === message.user ? "Delete" : "Mod delete"}
                     </button>
                   )}
+
+                  {canModerateRoom &&
+                    currentUserId !== null &&
+                    currentUserId !== message.user &&
+                    !room.is_direct && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => onRemoveMember(message.user)}
+                          disabled={
+                            moderationActionLoadingKey ===
+                            `remove-${message.user}`
+                          }
+                          style={{
+                            ...secondaryButtonStyle,
+                            fontSize: "12px",
+                            padding: "4px 8px",
+                            minWidth: "auto",
+                            opacity:
+                              moderationActionLoadingKey ===
+                              `remove-${message.user}`
+                                ? 0.6
+                                : 1,
+                          }}
+                        >
+                          {moderationActionLoadingKey ===
+                          `remove-${message.user}`
+                            ? "Removing..."
+                            : "Remove member"}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => onBanMember(message.user)}
+                          disabled={
+                            moderationActionLoadingKey === `ban-${message.user}`
+                          }
+                          style={{
+                            ...secondaryButtonStyle,
+                            fontSize: "12px",
+                            padding: "4px 8px",
+                            minWidth: "auto",
+                            opacity:
+                              moderationActionLoadingKey ===
+                              `ban-${message.user}`
+                                ? 0.6
+                                : 1,
+                            backgroundColor: "rgba(220, 53, 69, 0.1)",
+                            borderColor: palette.danger,
+                            color: palette.danger,
+                          }}
+                        >
+                          {moderationActionLoadingKey === `ban-${message.user}`
+                            ? "Banning..."
+                            : "Ban member"}
+                        </button>
+                      </>
+                    )}
                 </div>
                 {message.reply_to_message && (
                   <div
@@ -389,6 +458,7 @@ export function ChatPanel({
                   <span style={{ fontWeight: 600, color: palette.text }}>
                     {message.user_username}
                   </span>
+                  <PresenceBadge status={presenceByUserId[message.user]} />
                   <span
                     style={{
                       fontSize: "12px",

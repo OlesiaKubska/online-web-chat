@@ -71,9 +71,16 @@ export interface PresenceHeartbeatPayload {
   status: 'online' | 'afk'
 }
 
+export type UserPresenceStatus = 'online' | 'afk' | 'offline'
+
 export interface PresenceHeartbeatResponse {
   user_id: number
-  status: string
+  status: UserPresenceStatus
+}
+
+export interface UserPresenceResponse {
+  user_id: number
+  status: UserPresenceStatus
 }
 
 export async function sendPresenceHeartbeat(payload: PresenceHeartbeatPayload): Promise<PresenceHeartbeatResponse> {
@@ -81,6 +88,15 @@ export async function sendPresenceHeartbeat(payload: PresenceHeartbeatPayload): 
     method: 'POST',
     body: JSON.stringify(payload),
   })
+}
+
+export async function getUsersPresence(userIds: number[]): Promise<UserPresenceResponse[]> {
+  if (userIds.length === 0) {
+    return []
+  }
+
+  const ids = Array.from(new Set(userIds)).join(',')
+  return apiRequest<UserPresenceResponse[]>(`/presence/users/?ids=${encodeURIComponent(ids)}`)
 }
 
 export async function uploadMessageAttachment(

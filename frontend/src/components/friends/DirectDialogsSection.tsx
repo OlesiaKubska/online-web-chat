@@ -1,11 +1,14 @@
 import SectionShell from "../rooms/SectionShell";
 import { Panel } from "../rooms/Panel";
 import { palette, secondaryButtonStyle } from "../../styles/roomsTheme";
+import { PresenceBadge } from "../rooms/PresenceBadge";
+import type { UserPresenceStatus } from "../../lib/api";
 import type { Room } from "../../types/room";
 
 interface DirectDialogsSectionProps {
   dialogs: Room[];
   currentUserId: number | null;
+  presenceByUserId: Record<number, UserPresenceStatus>;
   onOpenDialog: (roomId: number) => void;
 }
 
@@ -20,9 +23,20 @@ function resolveOtherUsername(
   return otherUsername ?? "Unknown";
 }
 
+function resolveOtherUserId(
+  dialog: Room,
+  currentUserId: number | null,
+): number | null {
+  if (dialog.dm_user1 === currentUserId) {
+    return dialog.dm_user2;
+  }
+  return dialog.dm_user1;
+}
+
 export function DirectDialogsSection({
   dialogs,
   currentUserId,
+  presenceByUserId,
   onOpenDialog,
 }: DirectDialogsSectionProps) {
   const emptyTextStyle = { color: palette.textMuted, margin: 0 } as const;
@@ -45,22 +59,42 @@ export function DirectDialogsSection({
         </p>
       ) : (
         <div style={{ display: "grid", gap: "12px" }}>
-          {dialogs.map((dialog) => (
-            <Panel key={dialog.id}>
-              <div style={rowStyle}>
-                <div style={{ fontWeight: 700 }}>
-                  {resolveOtherUsername(dialog, currentUserId)}
+          {dialogs.map((dialog) => {
+            const otherUserId = resolveOtherUserId(dialog, currentUserId);
+
+            return (
+              <Panel key={dialog.id}>
+                <div style={rowStyle}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <div style={{ fontWeight: 700 }}>
+                      {resolveOtherUsername(dialog, currentUserId)}
+                    </div>
+                    <PresenceBadge
+                      status={
+                        otherUserId !== null
+                          ? presenceByUserId[otherUserId]
+                          : undefined
+                      }
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onOpenDialog(dialog.id)}
+                    style={secondaryButtonStyle}
+                  >
+                    Open chat
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => onOpenDialog(dialog.id)}
-                  style={secondaryButtonStyle}
-                >
-                  Open chat
-                </button>
-              </div>
-            </Panel>
-          ))}
+              </Panel>
+            );
+          })}
         </div>
       )}
     </SectionShell>

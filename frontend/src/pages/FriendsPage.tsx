@@ -13,7 +13,11 @@ import {
   rejectFriendRequest,
   sendFriendRequestByUsername,
 } from "../lib/friendsApi";
-import { ApiError } from "../lib/api";
+import {
+  ApiError,
+  getUsersPresence,
+  type UserPresenceStatus,
+} from "../lib/api";
 import type { Friend, FriendRequest } from "../types/friends";
 import type { Room } from "../types/room";
 import { getCurrentUser } from "../lib/roomsApi";
@@ -47,6 +51,9 @@ export default function FriendsPage() {
   const [outgoing, setOutgoing] = useState<FriendRequest[]>([]);
   const [dialogs, setDialogs] = useState<Room[]>([]);
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+  const [presenceByUserId, setPresenceByUserId] = useState<
+    Record<number, UserPresenceStatus>
+  >({});
 
   const [username, setUsername] = useState("");
   const [message, setMessage] = useState("");
@@ -81,6 +88,30 @@ export default function FriendsPage() {
       setOutgoing(outgoingData);
       setDialogs(dialogsData);
       setCurrentUserId(me.id);
+
+      const presenceUserIds = new Set<number>();
+      friendsData.forEach((friend) => presenceUserIds.add(friend.id));
+      incomingData.forEach((request) => presenceUserIds.add(request.from_user));
+      outgoingData.forEach((request) => presenceUserIds.add(request.to_user));
+      dialogsData.forEach((dialog) => {
+        if (dialog.dm_user1 && dialog.dm_user1 !== me.id) {
+          presenceUserIds.add(dialog.dm_user1);
+        }
+        if (dialog.dm_user2 && dialog.dm_user2 !== me.id) {
+          presenceUserIds.add(dialog.dm_user2);
+        }
+      });
+
+      try {
+        const statuses = await getUsersPresence([...presenceUserIds]);
+        const nextPresenceMap: Record<number, UserPresenceStatus> = {};
+        statuses.forEach((statusItem) => {
+          nextPresenceMap[statusItem.user_id] = statusItem.status;
+        });
+        setPresenceByUserId(nextPresenceMap);
+      } catch {
+        setPresenceByUserId({});
+      }
     } catch (err) {
       setError(getErrorMessage(err, "Failed to load friends data"));
     } finally {
@@ -241,6 +272,7 @@ export default function FriendsPage() {
             <IncomingRequestsSection
               incoming={incoming}
               actionLoadingId={actionLoadingId}
+              presenceByUserId={presenceByUserId}
               onAccept={(requestId) =>
                 runRequestAction(requestId, () =>
                   acceptFriendRequest(requestId),
@@ -256,6 +288,7 @@ export default function FriendsPage() {
             <OutgoingRequestsSection
               outgoing={outgoing}
               actionLoadingId={actionLoadingId}
+              presenceByUserId={presenceByUserId}
               onCancel={(requestId) =>
                 runRequestAction(requestId, () =>
                   cancelFriendRequest(requestId),
@@ -266,6 +299,7 @@ export default function FriendsPage() {
             <DirectDialogsSection
               dialogs={dialogs}
               currentUserId={currentUserId}
+              presenceByUserId={presenceByUserId}
               onOpenDialog={(roomId) => navigate(`/rooms/${roomId}`)}
             />
 
@@ -273,6 +307,7 @@ export default function FriendsPage() {
               friends={friends}
               messageLoadingId={messageLoadingId}
               friendActionLoadingKey={friendActionLoadingKey}
+              presenceByUserId={presenceByUserId}
               onMessage={handleMessage}
               onRemoveFriend={(friendId) =>
                 runFriendAction(friendId, "remove", () =>

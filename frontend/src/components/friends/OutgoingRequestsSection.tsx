@@ -1,17 +1,21 @@
 import SectionShell from "../rooms/SectionShell";
 import { Panel } from "../rooms/Panel";
 import { palette, secondaryButtonStyle } from "../../styles/roomsTheme";
+import { PresenceBadge } from "../rooms/PresenceBadge";
+import type { UserPresenceStatus } from "../../lib/api";
 import type { FriendRequest } from "../../types/friends";
 
 interface OutgoingRequestsSectionProps {
   outgoing: FriendRequest[];
   actionLoadingId: number | null;
+  presenceByUserId: Record<number, UserPresenceStatus>;
   onCancel: (requestId: number) => void;
 }
 
 export function OutgoingRequestsSection({
   outgoing,
   actionLoadingId,
+  presenceByUserId,
   onCancel,
 }: OutgoingRequestsSectionProps) {
   const emptyTextStyle = { color: palette.textMuted, margin: 0 } as const;
@@ -43,7 +47,17 @@ export function OutgoingRequestsSection({
             <Panel key={request.id}>
               <div style={rowStyle}>
                 <div>
-                  <div style={{ fontWeight: 700 }}>{request.to_username}</div>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <div style={{ fontWeight: 700 }}>{request.to_username}</div>
+                    <PresenceBadge status={presenceByUserId[request.to_user]} />
+                  </div>
                   {request.message ? (
                     <div style={messageStyle}>{request.message}</div>
                   ) : null}

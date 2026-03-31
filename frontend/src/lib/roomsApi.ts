@@ -1,5 +1,5 @@
 import { apiRequest } from './api'
-import type { Room, CreateRoomPayload } from '../types/room'
+import type { Room, CreateRoomPayload, RoomBan } from '../types/room'
 
 export interface User {
   id: number
@@ -47,7 +47,43 @@ export async function joinRoom(id: number): Promise<JoinRoomResponse> {
     method: 'POST',
   })
 }
+export async function banRoomMember(
+  roomId: number,
+  userId: number,
+  reason?: string
+): Promise<RoomBan> {
+  return apiRequest<RoomBan>(`/rooms/${roomId}/ban/${userId}/`, {
+    method: 'POST',
+    body: JSON.stringify({ reason: reason ?? '' }),
+  })
+}
 
+export async function removeRoomMember(
+  roomId: number,
+  userId: number,
+  reason?: string
+): Promise<RoomBan> {
+  return apiRequest<RoomBan>(`/rooms/${roomId}/members/${userId}/`, {
+    method: 'DELETE',
+    body: JSON.stringify({ reason: reason ?? '' }),
+  })
+}
+
+export async function getRoomBannedUsers(roomId: number): Promise<RoomBan[]> {
+  return apiRequest<RoomBan[]>(`/rooms/${roomId}/bans/`)
+}
+
+export async function unbanRoomUser(roomId: number, userId: number): Promise<void> {
+  return apiRequest<void>(`/rooms/${roomId}/bans/${userId}/`, {
+    method: 'DELETE',
+  })
+}
+
+export async function deleteRoom(roomId: number): Promise<void> {
+  return apiRequest<void>(`/rooms/${roomId}/`, {
+    method: 'DELETE',
+  })
+}
 export async function leaveRoom(id: number): Promise<LeaveRoomResponse> {
   return apiRequest<LeaveRoomResponse>(`/rooms/${id}/leave/`, {
     method: 'POST',
