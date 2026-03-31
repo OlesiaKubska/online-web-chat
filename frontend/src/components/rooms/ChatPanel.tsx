@@ -387,8 +387,8 @@ export function ChatPanel({
                         >
                           {moderationActionLoadingKey ===
                           `remove-${message.user}`
-                            ? "Removing..."
-                            : "Remove member"}
+                            ? "Removing & banning..."
+                            : "Remove & ban"}
                         </button>
 
                         <button

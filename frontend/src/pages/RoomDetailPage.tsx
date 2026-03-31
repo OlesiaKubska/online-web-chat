@@ -118,7 +118,10 @@ export default function RoomDetailPage() {
     }
 
     const userIds = Array.from(
-      new Set(messages.map((message) => message.user)),
+      new Set([
+        ...messages.map((message) => message.user),
+        ...roomMembers.map((member) => member.user_id),
+      ]),
     );
     if (userIds.length === 0) {
       setPresenceByUserId({});
@@ -155,7 +158,7 @@ export default function RoomDetailPage() {
       cancelled = true;
       window.clearInterval(intervalId);
     };
-  }, [room?.id, room?.joined, messages]);
+  }, [room?.id, room?.joined, messages, roomMembers]);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -421,7 +424,7 @@ export default function RoomDetailPage() {
       return;
     }
     await runModerationAction(`remove-${userId}`, () =>
-      removeRoomMember(room.id, userId, "Removed by moderator"),
+      removeRoomMember(room.id, userId, "Removed and banned by moderator"),
     );
   };
 
@@ -607,6 +610,7 @@ export default function RoomDetailPage() {
             roomMembers={roomMembers}
             showMembers={showMembers}
             membersLoading={membersLoading}
+            presenceByUserId={presenceByUserId}
             onToggleMembers={handleToggleMembers}
             onUpdateRole={handleUpdateRole}
           />

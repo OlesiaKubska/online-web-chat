@@ -61,3 +61,15 @@ def cleanup_stale_presence():
     threshold = timezone.now() - timedelta(minutes=STALE_PRESENCE_MINUTES)
     deleted_count, _ = UserPresence.objects.filter(last_seen__lt=threshold).delete()
     return deleted_count
+
+
+def close_presence_tab(user, session_id, tab_id):
+    """
+    Remove presence record for a specific user/session/tab immediately.
+    """
+    deleted_count, _ = UserPresence.objects.filter(
+        user=user,
+        session_id=session_id,
+        tab_id=tab_id,
+    ).delete()
+    return deleted_count

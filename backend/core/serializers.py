@@ -12,3 +12,8 @@ class PresenceHeartbeatSerializer(serializers.Serializer):
 class PresenceResponseSerializer(serializers.Serializer):
     user_id = serializers.IntegerField()
     status = serializers.CharField()
+
+
+class PresenceTabCloseSerializer(serializers.Serializer):
+    session_id = serializers.CharField(max_length=255)
+    tab_id = serializers.CharField(max_length=255)

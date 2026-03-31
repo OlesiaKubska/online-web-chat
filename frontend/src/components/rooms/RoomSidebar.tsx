@@ -1,4 +1,5 @@
 import type { Room, RoomBan, RoomMember } from "../../types/room";
+import type { UserPresenceStatus } from "../../lib/api";
 import {
   palette,
   primaryButtonStyle,
@@ -8,6 +9,7 @@ import {
 } from "../../styles/roomsTheme";
 import { Panel } from "./Panel";
 import { InfoRow } from "./InfoRow";
+import { PresenceBadge } from "./PresenceBadge";
 
 interface RoomSidebarProps {
   room: Room;
@@ -21,6 +23,7 @@ interface RoomSidebarProps {
   roomMembers: RoomMember[];
   showMembers: boolean;
   membersLoading: boolean;
+  presenceByUserId: Record<number, UserPresenceStatus>;
   onJoin: () => void;
   onLeave: () => void;
   onBack: () => void;
@@ -43,6 +46,7 @@ export function RoomSidebar({
   roomMembers,
   showMembers,
   membersLoading,
+  presenceByUserId,
   onJoin,
   onLeave,
   onBack,
@@ -282,7 +286,19 @@ export function RoomSidebar({
                         alignItems: "center",
                       }}
                     >
-                      <div style={{ fontWeight: 700 }}>{member.username}</div>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "8px",
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <div style={{ fontWeight: 700 }}>{member.username}</div>
+                        <PresenceBadge
+                          status={presenceByUserId[member.user_id]}
+                        />
+                      </div>
                       <div
                         style={{
                           fontSize: "12px",

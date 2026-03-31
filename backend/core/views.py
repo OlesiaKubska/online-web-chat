@@ -8,8 +8,12 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .authentication import CsrfExemptSessionAuthentication
-from .serializers import PresenceHeartbeatSerializer, PresenceResponseSerializer
-from .services import get_user_presence, update_presence
+from .serializers import (
+    PresenceHeartbeatSerializer,
+    PresenceResponseSerializer,
+    PresenceTabCloseSerializer,
+)
+from .services import close_presence_tab, get_user_presence, update_presence
 
 User = get_user_model()
 
@@ -75,3 +79,21 @@ class PresenceUsersView(APIView):
             })
 
         return Response(results)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class PresenceTabCloseView(APIView):
+    authentication_classes = [CsrfExemptSessionAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = PresenceTabCloseSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        data = serializer.validated_data
+        close_presence_tab(
+            user=request.user,
+            session_id=data["session_id"],
+            tab_id=data["tab_id"],
+        )
+        return Response({"ok": True})
