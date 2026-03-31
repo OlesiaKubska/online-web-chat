@@ -3,6 +3,16 @@ from rest_framework import serializers
 from .models import Room, RoomMembership, Message, RoomBan, MessageAttachment
 
 
+class RoomMembershipSerializer(serializers.ModelSerializer):
+    user_id = serializers.IntegerField(source='user.id', read_only=True)
+    username = serializers.CharField(source='user.username', read_only=True)
+
+    class Meta:
+        model = RoomMembership
+        fields = ['id', 'user_id', 'username', 'role', 'created_at']
+        read_only_fields = ['id', 'user_id', 'username', 'created_at']
+
+
 class RoomSerializer(serializers.ModelSerializer):
     owner_username = serializers.CharField(source='owner.username', read_only=True)
     member_count = serializers.SerializerMethodField()

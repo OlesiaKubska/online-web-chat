@@ -10,6 +10,8 @@ import {
   getRoomBannedUsers,
   unbanRoomUser,
   deleteRoom,
+  getRoomMembers,
+  updateMemberRole,
 } from "../lib/roomsApi";
 import {
   getRoomMessages,
@@ -17,7 +19,7 @@ import {
   editMessage,
   deleteMessage,
 } from "../lib/messagesApi";
-import type { Room, RoomBan } from "../types/room";
+import type { Room, RoomBan, RoomMember } from "../types/room";
 import type { Message } from "../types/message";
 import { LoadingState } from "../components/rooms/LoadingState";
 import { ErrorState } from "../components/rooms/ErrorState";
@@ -70,6 +72,10 @@ export default function RoomDetailPage() {
   >({});
 
   const isMountedRef = useRef(true);
+
+  const [roomMembers, setRoomMembers] = useState<RoomMember[]>([]);
+  const [showMembers, setShowMembers] = useState(false);
+  const [membersLoading, setMembersLoading] = useState(false);
 
   useEffect(() => {
     if (!id) {
@@ -461,6 +467,37 @@ export default function RoomDetailPage() {
     }
   };
 
+  const loadRoomMembers = async (roomId: number) => {
+    try {
+      setMembersLoading(true);
+      const members = await getRoomMembers(roomId);
+      setRoomMembers(members);
+    } catch (err: unknown) {
+      setMessagesError(
+        err instanceof Error ? err.message : "Failed to load members",
+      );
+    } finally {
+      setMembersLoading(false);
+    }
+  };
+
+  const handleToggleMembers = async () => {
+    if (!room) return;
+    const next = !showMembers;
+    setShowMembers(next);
+    if (next) {
+      await loadRoomMembers(room.id);
+    }
+  };
+
+  const handleUpdateRole = async (userId: number, role: "admin" | "member") => {
+    if (!room) return;
+    await runModerationAction(`role-${userId}`, async () => {
+      await updateMemberRole(room.id, userId, role);
+      await loadRoomMembers(room.id);
+    });
+  };
+
   const handleSendMessage = async () => {
     if (!room) return;
 
@@ -567,6 +604,11 @@ export default function RoomDetailPage() {
             onToggleBannedUsers={handleToggleBannedUsers}
             onUnbanUser={handleUnbanUser}
             onDeleteRoom={handleDeleteRoom}
+            roomMembers={roomMembers}
+            showMembers={showMembers}
+            membersLoading={membersLoading}
+            onToggleMembers={handleToggleMembers}
+            onUpdateRole={handleUpdateRole}
           />
 
           <main style={{ display: "grid", gap: "24px" }}>

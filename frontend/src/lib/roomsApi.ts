@@ -1,5 +1,5 @@
 import { apiRequest } from './api'
-import type { Room, CreateRoomPayload, RoomBan } from '../types/room'
+import type { Room, CreateRoomPayload, RoomBan, RoomMember } from '../types/room'
 
 export interface User {
   id: number
@@ -87,5 +87,20 @@ export async function deleteRoom(roomId: number): Promise<void> {
 export async function leaveRoom(id: number): Promise<LeaveRoomResponse> {
   return apiRequest<LeaveRoomResponse>(`/rooms/${id}/leave/`, {
     method: 'POST',
+  })
+}
+
+export async function getRoomMembers(roomId: number): Promise<RoomMember[]> {
+  return apiRequest<RoomMember[]>(`/rooms/${roomId}/members/`)
+}
+
+export async function updateMemberRole(
+  roomId: number,
+  userId: number,
+  role: 'admin' | 'member'
+): Promise<RoomMember> {
+  return apiRequest<RoomMember>(`/rooms/${roomId}/members/${userId}/role/`, {
+    method: 'PATCH',
+    body: JSON.stringify({ role }),
   })
 }

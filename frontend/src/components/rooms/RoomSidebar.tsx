@@ -1,4 +1,4 @@
-import type { Room, RoomBan } from "../../types/room";
+import type { Room, RoomBan, RoomMember } from "../../types/room";
 import {
   palette,
   primaryButtonStyle,
@@ -18,12 +18,17 @@ interface RoomSidebarProps {
   showBannedUsers: boolean;
   bannedUsers: RoomBan[];
   bansLoading: boolean;
+  roomMembers: RoomMember[];
+  showMembers: boolean;
+  membersLoading: boolean;
   onJoin: () => void;
   onLeave: () => void;
   onBack: () => void;
   onToggleBannedUsers: () => void;
   onUnbanUser: (userId: number) => void;
   onDeleteRoom: () => void;
+  onToggleMembers: () => void;
+  onUpdateRole: (userId: number, role: "admin" | "member") => void;
 }
 
 export function RoomSidebar({
@@ -35,12 +40,17 @@ export function RoomSidebar({
   showBannedUsers,
   bannedUsers,
   bansLoading,
+  roomMembers,
+  showMembers,
+  membersLoading,
   onJoin,
   onLeave,
   onBack,
   onToggleBannedUsers,
   onUnbanUser,
   onDeleteRoom,
+  onToggleMembers,
+  onUpdateRole,
 }: RoomSidebarProps) {
   return (
     <aside
@@ -133,6 +143,18 @@ export function RoomSidebar({
 
           {isOwner && !room.is_direct && (
             <button
+              onClick={onToggleMembers}
+              style={{
+                ...secondaryButtonStyle,
+                backgroundColor: palette.cardSoft,
+              }}
+            >
+              {showMembers ? "Hide members" : "Manage admins"}
+            </button>
+          )}
+
+          {isOwner && !room.is_direct && (
+            <button
               onClick={onDeleteRoom}
               disabled={moderationActionLoadingKey === "delete-room"}
               style={{
@@ -215,6 +237,93 @@ export function RoomSidebar({
                   </button>
                 </div>
               ))}
+            </div>
+          )}
+        </Panel>
+      )}
+
+      {isOwner && !room.is_direct && showMembers && (
+        <Panel>
+          <h2 style={panelTitleStyle}>Members</h2>
+
+          {membersLoading ? (
+            <div style={{ color: palette.textMuted, fontSize: "14px" }}>
+              Loading members...
+            </div>
+          ) : roomMembers.length === 0 ? (
+            <div style={{ color: palette.textMuted, fontSize: "14px" }}>
+              No members.
+            </div>
+          ) : (
+            <div style={{ display: "grid", gap: "10px" }}>
+              {roomMembers.map((member) => {
+                const loading =
+                  moderationActionLoadingKey === `role-${member.user_id}`;
+                const canPromote = member.role === "member";
+                const canDemote = member.role === "admin";
+
+                return (
+                  <div
+                    key={member.id}
+                    style={{
+                      border: `1px solid ${palette.border}`,
+                      borderRadius: "12px",
+                      padding: "10px",
+                      backgroundColor: palette.cardSoft,
+                      display: "grid",
+                      gap: "8px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        gap: "8px",
+                        alignItems: "center",
+                      }}
+                    >
+                      <div style={{ fontWeight: 700 }}>{member.username}</div>
+                      <div
+                        style={{
+                          fontSize: "12px",
+                          color: palette.textMuted,
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        {member.role}
+                      </div>
+                    </div>
+
+                    {canPromote && (
+                      <button
+                        onClick={() => onUpdateRole(member.user_id, "admin")}
+                        disabled={loading}
+                        style={{
+                          ...secondaryButtonStyle,
+                          width: "100%",
+                          opacity: loading ? 0.7 : 1,
+                        }}
+                      >
+                        {loading ? "Updating..." : "Promote to admin"}
+                      </button>
+                    )}
+
+                    {canDemote && (
+                      <button
+                        onClick={() => onUpdateRole(member.user_id, "member")}
+                        disabled={loading}
+                        style={{
+                          ...secondaryButtonStyle,
+                          width: "100%",
+                          opacity: loading ? 0.7 : 1,
+                        }}
+                      >
+                        {loading ? "Updating..." : "Demote to member"}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </Panel>

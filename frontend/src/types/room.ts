@@ -40,3 +40,11 @@ export interface RoomBan {
   reason: string
   created_at: string
 }
+
+export interface RoomMember {
+  id: number
+  user_id: number
+  username: string
+  role: 'owner' | 'admin' | 'member'
+  created_at: string
+}

@@ -22,7 +22,10 @@ from .serializers import (
     CreateMessageSerializer,
     UpdateMessageSerializer,
     RoomBanSerializer,
-    CreateRoomBanSerializer, MessageAttachmentSerializer)
+    CreateRoomBanSerializer,
+    MessageAttachmentSerializer,
+    RoomMembershipSerializer,
+)
 from core.authentication import CsrfExemptSessionAuthentication
 
 
@@ -461,6 +464,59 @@ class RoomBansListView(generics.ListAPIView):
             return RoomBan.objects.none()
 
         return RoomBan.objects.filter(room=room).select_related('banned_user', 'banned_by')
+
+
+class RoomMemberListView(generics.ListAPIView):
+    serializer_class = RoomMembershipSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        room_id = self.kwargs['pk']
+        try:
+            room = Room.objects.get(pk=room_id)
+        except Room.DoesNotExist:
+            raise NotFound('Room not found.')
+        ensure_room_member(room, self.request.user)
+        return RoomMembership.objects.filter(room=room).select_related('user').order_by('created_at')
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class UpdateMemberRoleView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [CsrfExemptSessionAuthentication]
+
+    def patch(self, request, pk, user_id):
+        room = get_object_or_404(Room, pk=pk)
+
+        if not RoomMembership.is_owner(request.user, room):
+            raise PermissionDenied('Only the room owner can change member roles.')
+
+        membership = get_object_or_404(RoomMembership, room=room, user_id=user_id)
+
+        if membership.role == RoomMembership.Role.OWNER:
+            return Response(
+                {'detail': 'Cannot change the role of the room owner.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if membership.user_id == request.user.id:
+            return Response(
+                {'detail': 'Cannot change your own role.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        new_role = request.data.get('role')
+        if new_role not in (RoomMembership.Role.ADMIN, RoomMembership.Role.MEMBER):
+            return Response(
+                {'detail': 'Role must be "admin" or "member".'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        membership.role = new_role
+        membership.save(update_fields=['role'])
+
+        serializer = RoomMembershipSerializer(membership)
+        return Response(serializer.data)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
