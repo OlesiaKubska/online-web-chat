@@ -1,15 +1,26 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { PageShell } from "../components/rooms/PageShell";
 import { Panel } from "../components/rooms/Panel";
 import { AppNavBar } from "../components/navigation/AppNavBar";
 import { palette, inputStyle, primaryButtonStyle } from "../styles/roomsTheme";
 
 const RegisterPage = () => {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [isSuccess, setIsSuccess] = useState(false);
+  const redirectTimeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (redirectTimeoutRef.current !== null) {
+        window.clearTimeout(redirectTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,10 +39,18 @@ const RegisterPage = () => {
 
       if (response.ok) {
         setIsSuccess(true);
-        setMessage("Registration successful!");
+        setMessage("Registration successful! Redirecting to login...");
         setEmail("");
         setUsername("");
         setPassword("");
+
+        if (redirectTimeoutRef.current !== null) {
+          window.clearTimeout(redirectTimeoutRef.current);
+        }
+
+        redirectTimeoutRef.current = window.setTimeout(() => {
+          navigate("/login");
+        }, 1000);
       } else {
         setIsSuccess(false);
 
