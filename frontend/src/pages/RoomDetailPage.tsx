@@ -23,11 +23,8 @@ import type { Room, RoomBan, RoomMember } from "../types/room";
 import type { Message } from "../types/message";
 import { LoadingState } from "../components/rooms/LoadingState";
 import { ErrorState } from "../components/rooms/ErrorState";
-import { PageShell } from "../components/rooms/PageShell";
-import { TopBar } from "../components/rooms/TopBar";
-import { RoomHero } from "../components/rooms/RoomHero";
-import { RoomSidebar } from "../components/rooms/RoomSidebar";
-import { ChatPanel } from "../components/rooms/ChatPanel";
+import { RoomDetailScaffold } from "../components/rooms/RoomDetailScaffold";
+import { RoomDetailContent } from "../components/rooms/RoomDetailContent";
 import {
   ApiError,
   getUsersPresence,
@@ -544,36 +541,29 @@ export default function RoomDetailPage() {
     }
   };
 
+  const handleBack = () => navigate("/rooms");
+
   if (loading) {
     return (
-      <PageShell>
-        <TopBar onBack={() => navigate("/rooms")} />
-        <div style={{ maxWidth: "1280px", margin: "0 auto" }}>
-          <LoadingState />
-        </div>
-      </PageShell>
+      <RoomDetailScaffold onBack={handleBack}>
+        <LoadingState />
+      </RoomDetailScaffold>
     );
   }
 
   if (error) {
     return (
-      <PageShell>
-        <TopBar onBack={() => navigate("/rooms")} />
-        <div style={{ maxWidth: "1280px", margin: "0 auto" }}>
-          <ErrorState message={error} />
-        </div>
-      </PageShell>
+      <RoomDetailScaffold onBack={handleBack}>
+        <ErrorState message={error} />
+      </RoomDetailScaffold>
     );
   }
 
   if (!room) {
     return (
-      <PageShell>
-        <TopBar onBack={() => navigate("/rooms")} />
-        <div style={{ maxWidth: "1280px", margin: "0 auto" }}>
-          <ErrorState message="Room not found" />
-        </div>
-      </PageShell>
+      <RoomDetailScaffold onBack={handleBack}>
+        <ErrorState message="Room not found" />
+      </RoomDetailScaffold>
     );
   }
 
@@ -581,74 +571,60 @@ export default function RoomDetailPage() {
   const isOwner = room.my_role === "owner";
 
   return (
-    <PageShell>
-      <div style={{ maxWidth: "1280px", margin: "0 auto" }}>
-        <TopBar onBack={() => navigate("/rooms")} />
-
-        <RoomHero room={room} currentUserId={currentUserId} />
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "340px minmax(0, 1fr)",
-            gap: "24px",
-            alignItems: "start",
-          }}
-        >
-          <RoomSidebar
-            room={room}
-            actionLoading={actionLoading}
-            moderationActionLoadingKey={moderationActionLoadingKey}
-            isModerator={isModerator}
-            isOwner={isOwner}
-            showBannedUsers={showBannedUsers}
-            bannedUsers={bannedUsers}
-            bansLoading={bansLoading}
-            onJoin={handleJoin}
-            onLeave={handleLeave}
-            onBack={() => navigate("/rooms")}
-            onToggleBannedUsers={handleToggleBannedUsers}
-            onUnbanUser={handleUnbanUser}
-            onDeleteRoom={handleDeleteRoom}
-            roomMembers={roomMembers}
-            showMembers={showMembers}
-            membersLoading={membersLoading}
-            presenceByUserId={presenceByUserId}
-            onToggleMembers={handleToggleMembers}
-            onUpdateRole={handleUpdateRole}
-          />
-
-          <main style={{ display: "grid", gap: "24px" }}>
-            <ChatPanel
-              room={room}
-              messages={messages}
-              messagesLoading={messagesLoading}
-              messagesError={messagesError}
-              messageContent={messageContent}
-              onMessageChange={setMessageContent}
-              onSendMessage={handleSendMessage}
-              sendingMessage={sendingMessage}
-              replyTo={replyTo}
-              onReply={setReplyTo}
-              onCancelReply={() => setReplyTo(null)}
-              currentUserId={currentUserId}
-              editingMessageId={editingMessageId}
-              editingMessageContent={editingMessageContent}
-              onEditingMessageChange={setEditingMessageContent}
-              onStartEdit={handleStartEdit}
-              onCancelEdit={handleCancelEdit}
-              onSaveEdit={handleSaveEdit}
-              editingSaving={editingSaving}
-              onDeleteMessage={handleDeleteMessage}
-              onBanMember={handleBanMember}
-              onRemoveMember={handleRemoveMember}
-              moderationActionLoadingKey={moderationActionLoadingKey}
-              presenceByUserId={presenceByUserId}
-              wsStatus={wsStatus}
-            />
-          </main>
-        </div>
-      </div>
-    </PageShell>
+    <RoomDetailScaffold onBack={handleBack}>
+      <RoomDetailContent
+        room={room}
+        currentUserId={currentUserId}
+        sidebarProps={{
+          room,
+          actionLoading,
+          moderationActionLoadingKey,
+          isModerator,
+          isOwner,
+          showBannedUsers,
+          bannedUsers,
+          bansLoading,
+          onJoin: handleJoin,
+          onLeave: handleLeave,
+          onBack: handleBack,
+          onToggleBannedUsers: handleToggleBannedUsers,
+          onUnbanUser: handleUnbanUser,
+          onDeleteRoom: handleDeleteRoom,
+          roomMembers,
+          showMembers,
+          membersLoading,
+          presenceByUserId,
+          onToggleMembers: handleToggleMembers,
+          onUpdateRole: handleUpdateRole,
+        }}
+        chatPanelProps={{
+          room,
+          messages,
+          messagesLoading,
+          messagesError,
+          messageContent,
+          onMessageChange: setMessageContent,
+          onSendMessage: handleSendMessage,
+          sendingMessage,
+          replyTo,
+          onReply: setReplyTo,
+          onCancelReply: () => setReplyTo(null),
+          currentUserId,
+          editingMessageId,
+          editingMessageContent,
+          onEditingMessageChange: setEditingMessageContent,
+          onStartEdit: handleStartEdit,
+          onCancelEdit: handleCancelEdit,
+          onSaveEdit: handleSaveEdit,
+          editingSaving,
+          onDeleteMessage: handleDeleteMessage,
+          onBanMember: handleBanMember,
+          onRemoveMember: handleRemoveMember,
+          moderationActionLoadingKey,
+          presenceByUserId,
+          wsStatus,
+        }}
+      />
+    </RoomDetailScaffold>
   );
 }
