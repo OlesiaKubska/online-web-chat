@@ -124,3 +124,75 @@ class DirectDialogApiTests(APITestCase):
 		self.assertEqual(list_response.status_code, status.HTTP_200_OK)
 		self.assertEqual(len(list_response.data), 1)
 		self.assertTrue(list_response.data[0]['is_direct'])
+
+
+class ModerationApiTests(APITestCase):
+	def setUp(self):
+		self.owner = User.objects.create_user(
+			username='owner',
+			email='owner@example.com',
+			password='pass12345',
+		)
+		self.admin = User.objects.create_user(
+			username='admin',
+			email='admin@example.com',
+			password='pass12345',
+		)
+		self.member = User.objects.create_user(
+			username='member',
+			email='member@example.com',
+			password='pass12345',
+		)
+
+		self.room = Room.objects.create(
+			name='mod-room',
+			description='Moderation room',
+			visibility=Room.Visibility.PUBLIC,
+			owner=self.owner,
+		)
+		RoomMembership.objects.create(
+			room=self.room,
+			user=self.owner,
+			role=RoomMembership.Role.OWNER,
+		)
+		RoomMembership.objects.create(
+			room=self.room,
+			user=self.admin,
+			role=RoomMembership.Role.ADMIN,
+		)
+		RoomMembership.objects.create(
+			room=self.room,
+			user=self.member,
+			role=RoomMembership.Role.MEMBER,
+		)
+
+	def test_admin_cannot_ban_owner(self):
+		self.client.force_login(self.admin)
+
+		response = self.client.post(
+			f'/api/rooms/{self.room.id}/ban/{self.owner.id}/',
+			{'reason': 'nope'},
+			format='json',
+		)
+
+		self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+		self.assertEqual(response.data['detail'], 'Cannot ban the room owner.')
+
+	def test_duplicate_ban_returns_400(self):
+		self.client.force_login(self.admin)
+
+		first = self.client.post(
+			f'/api/rooms/{self.room.id}/ban/{self.member.id}/',
+			{'reason': 'first'},
+			format='json',
+		)
+		self.assertEqual(first.status_code, status.HTTP_201_CREATED)
+
+		second = self.client.post(
+			f'/api/rooms/{self.room.id}/ban/{self.member.id}/',
+			{'reason': 'second'},
+			format='json',
+		)
+
+		self.assertEqual(second.status_code, status.HTTP_400_BAD_REQUEST)
+		self.assertEqual(second.data['non_field_errors'][0], 'User is already banned from this room.')

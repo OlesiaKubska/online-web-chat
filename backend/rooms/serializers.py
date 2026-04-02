@@ -235,6 +235,18 @@ class RoomBanSerializer(serializers.ModelSerializer):
 class CreateRoomBanSerializer(serializers.Serializer):
     reason = serializers.CharField(required=False, allow_blank=True)
 
+    def validate(self, attrs):
+        room = self.context['room']
+        banned_user = self.context['banned_user']
+
+        if banned_user.id == room.owner_id:
+            raise serializers.ValidationError('Cannot ban the room owner.')
+
+        if RoomBan.objects.filter(room=room, banned_user=banned_user).exists():
+            raise serializers.ValidationError('User is already banned from this room.')
+
+        return attrs
+
     def create(self, validated_data):
         room = self.context['room']
         banned_user = self.context['banned_user']

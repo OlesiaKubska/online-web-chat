@@ -5,6 +5,7 @@ from django.utils.decorators import method_decorator
 from django.utils.dateparse import parse_datetime
 from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
+from django.db import IntegrityError
 
 from rest_framework import generics, status
 from rest_framework.parsers import MultiPartParser, FormParser
@@ -362,12 +363,21 @@ class BanUserView(APIView):
         if banned_user.id == request.user.id:
             return Response({'detail': 'You cannot ban yourself.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        if banned_user.id == room.owner_id:
+            return Response({'detail': 'Cannot ban the room owner.'}, status=status.HTTP_400_BAD_REQUEST)
+
         serializer = CreateRoomBanSerializer(
             data=request.data,
             context={'request': request, 'room': room, 'banned_user': banned_user}
         )
         serializer.is_valid(raise_exception=True)
-        ban = serializer.save()
+        try:
+            ban = serializer.save()
+        except IntegrityError:
+            return Response(
+                {'detail': 'User is already banned from this room.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         # Remove from membership if present
         RoomMembership.objects.filter(room=room, user=banned_user).delete()
@@ -433,14 +443,29 @@ class RemoveMemberView(APIView):
         if not membership:
             return Response({'detail': 'User is not a member of this room.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        if membership.role == RoomMembership.Role.OWNER:
+            return Response({'detail': 'Cannot remove the room owner.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        existing_ban = RoomBan.objects.filter(room=room, banned_user=member_user).first()
+        if existing_ban:
+            membership.delete()
+            output_serializer = RoomBanSerializer(existing_ban)
+            return Response(output_serializer.data, status=status.HTTP_200_OK)
+
         # Create ban (reason can be from request data if provided)
         reason = request.data.get('reason', 'Removed by moderator')
-        ban = RoomBan.objects.create(
-            room=room,
-            banned_user=member_user,
-            banned_by=request.user,
-            reason=reason,
-        )
+        try:
+            ban = RoomBan.objects.create(
+                room=room,
+                banned_user=member_user,
+                banned_by=request.user,
+                reason=reason,
+            )
+        except IntegrityError:
+            return Response(
+                {'detail': 'User is already banned from this room.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         # Remove membership
         membership.delete()

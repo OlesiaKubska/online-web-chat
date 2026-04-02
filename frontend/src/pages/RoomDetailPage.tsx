@@ -401,6 +401,9 @@ export default function RoomDetailPage() {
       if (showBannedUsers) {
         await loadBannedUsers(room.id);
       }
+      if (showMembers) {
+        await loadRoomMembers(room.id);
+      }
     } catch (err: unknown) {
       setMessagesError(
         err instanceof Error ? err.message : "Moderation failed",
