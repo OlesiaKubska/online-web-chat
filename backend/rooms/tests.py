@@ -778,3 +778,114 @@ class MessagingApiTests(APITestCase):
         history = self.client.get(f'/api/rooms/{self.room.id}/messages/')
         self.assertEqual(history.status_code, status.HTTP_200_OK)
         self.assertTrue(any(item['content'] == 'message while bob offline' for item in history.data))
+
+
+class UnreadIndicatorsApiTests(APITestCase):
+    def setUp(self):
+        self.alice = User.objects.create_user(
+            username='notify-alice',
+            email='notify-alice@example.com',
+            password='pass12345',
+        )
+        self.bob = User.objects.create_user(
+            username='notify-bob',
+            email='notify-bob@example.com',
+            password='pass12345',
+        )
+        self.charlie = User.objects.create_user(
+            username='notify-charlie',
+            email='notify-charlie@example.com',
+            password='pass12345',
+        )
+
+        self.room = Room.objects.create(
+            name='notify-room',
+            description='notify tests',
+            visibility=Room.Visibility.PUBLIC,
+            owner=self.alice,
+        )
+        RoomMembership.objects.create(
+            room=self.room,
+            user=self.alice,
+            role=RoomMembership.Role.OWNER,
+        )
+        RoomMembership.objects.create(
+            room=self.room,
+            user=self.bob,
+            role=RoomMembership.Role.MEMBER,
+        )
+
+    def test_unread_indicator_appears_for_room_message_and_clears_on_open(self):
+        Message.objects.create(room=self.room, user=self.alice, content='hello bob')
+
+        self.client.force_login(self.bob)
+        before_open = self.client.get('/api/rooms/my/')
+        self.assertEqual(before_open.status_code, status.HTTP_200_OK)
+        room_item = next(item for item in before_open.data if item['id'] == self.room.id)
+        self.assertEqual(room_item['unread_count'], 1)
+
+        open_chat = self.client.get(f'/api/rooms/{self.room.id}/messages/')
+        self.assertEqual(open_chat.status_code, status.HTTP_200_OK)
+
+        after_open = self.client.get('/api/rooms/my/')
+        self.assertEqual(after_open.status_code, status.HTTP_200_OK)
+        room_item_after = next(item for item in after_open.data if item['id'] == self.room.id)
+        self.assertEqual(room_item_after['unread_count'], 0)
+
+    def test_unread_is_per_user_and_not_cleared_for_other_participants(self):
+        Message.objects.create(room=self.room, user=self.alice, content='hello bob')
+
+        self.client.force_login(self.bob)
+        open_chat = self.client.get(f'/api/rooms/{self.room.id}/messages/')
+        self.assertEqual(open_chat.status_code, status.HTTP_200_OK)
+
+        self.client.force_login(self.alice)
+        my_rooms = self.client.get('/api/rooms/my/')
+        self.assertEqual(my_rooms.status_code, status.HTTP_200_OK)
+        room_item = next(item for item in my_rooms.data if item['id'] == self.room.id)
+        self.assertEqual(room_item['unread_count'], 0)
+
+    def test_unread_indicator_appears_for_personal_dialog_and_clears_only_for_opened_dialog(self):
+        Friendship.objects.create(user1=self.alice, user2=self.bob)
+        Friendship.objects.create(user1=self.bob, user2=self.charlie)
+
+        self.client.force_login(self.alice)
+        first_dialog_resp = self.client.post(
+            '/api/rooms/dialogs/create-or-get/',
+            {'user_id': self.bob.id},
+            format='json',
+        )
+        self.assertIn(first_dialog_resp.status_code, [status.HTTP_200_OK, status.HTTP_201_CREATED])
+        first_dialog_id = first_dialog_resp.data['id']
+
+        self.client.force_login(self.charlie)
+        second_dialog_resp = self.client.post(
+            '/api/rooms/dialogs/create-or-get/',
+            {'user_id': self.bob.id},
+            format='json',
+        )
+        self.assertIn(second_dialog_resp.status_code, [status.HTTP_200_OK, status.HTTP_201_CREATED])
+        second_dialog_id = second_dialog_resp.data['id']
+
+        first_dialog = Room.objects.get(pk=first_dialog_id)
+        second_dialog = Room.objects.get(pk=second_dialog_id)
+        Message.objects.create(room=first_dialog, user=self.alice, content='dm one')
+        Message.objects.create(room=second_dialog, user=self.charlie, content='dm two')
+
+        self.client.force_login(self.bob)
+        dialogs_before_open = self.client.get('/api/rooms/dialogs/')
+        self.assertEqual(dialogs_before_open.status_code, status.HTTP_200_OK)
+        first_before = next(item for item in dialogs_before_open.data if item['id'] == first_dialog_id)
+        second_before = next(item for item in dialogs_before_open.data if item['id'] == second_dialog_id)
+        self.assertEqual(first_before['unread_count'], 1)
+        self.assertEqual(second_before['unread_count'], 1)
+
+        open_first = self.client.get(f'/api/rooms/{first_dialog_id}/messages/')
+        self.assertEqual(open_first.status_code, status.HTTP_200_OK)
+
+        dialogs_after_open = self.client.get('/api/rooms/dialogs/')
+        self.assertEqual(dialogs_after_open.status_code, status.HTTP_200_OK)
+        first_after = next(item for item in dialogs_after_open.data if item['id'] == first_dialog_id)
+        second_after = next(item for item in dialogs_after_open.data if item['id'] == second_dialog_id)
+        self.assertEqual(first_after['unread_count'], 0)
+        self.assertEqual(second_after['unread_count'], 1)

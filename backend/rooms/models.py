@@ -108,6 +108,7 @@ class RoomMembership(models.Model):
         choices=Role.choices,
         default=Role.MEMBER,
     )
+    last_read_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

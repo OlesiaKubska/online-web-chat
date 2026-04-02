@@ -33,6 +33,8 @@ import { OutgoingRequestsSection } from "../components/friends/OutgoingRequestsS
 import { DirectDialogsSection } from "../components/friends/DirectDialogsSection";
 import { FriendsListSection } from "../components/friends/FriendsListSection";
 
+const PRESENCE_REFRESH_INTERVAL_MS = 5000;
+
 function getErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof ApiError) {
     return error.message || fallback;
@@ -69,6 +71,42 @@ export default function FriendsPage() {
   const [error, setError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
+  const refreshPresence = useCallback(async () => {
+    if (currentUserId === null) {
+      setPresenceByUserId({});
+      return;
+    }
+
+    const presenceUserIds = new Set<number>();
+    friends.forEach((friend) => presenceUserIds.add(friend.id));
+    incoming.forEach((request) => presenceUserIds.add(request.from_user));
+    outgoing.forEach((request) => presenceUserIds.add(request.to_user));
+    dialogs.forEach((dialog) => {
+      if (dialog.dm_user1 && dialog.dm_user1 !== currentUserId) {
+        presenceUserIds.add(dialog.dm_user1);
+      }
+      if (dialog.dm_user2 && dialog.dm_user2 !== currentUserId) {
+        presenceUserIds.add(dialog.dm_user2);
+      }
+    });
+
+    if (presenceUserIds.size === 0) {
+      setPresenceByUserId({});
+      return;
+    }
+
+    try {
+      const statuses = await getUsersPresence([...presenceUserIds]);
+      const nextPresenceMap: Record<number, UserPresenceStatus> = {};
+      statuses.forEach((statusItem) => {
+        nextPresenceMap[statusItem.user_id] = statusItem.status;
+      });
+      setPresenceByUserId(nextPresenceMap);
+    } catch {
+      setPresenceByUserId({});
+    }
+  }, [currentUserId, dialogs, friends, incoming, outgoing]);
+
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
@@ -89,20 +127,22 @@ export default function FriendsPage() {
       setDialogs(dialogsData);
       setCurrentUserId(me.id);
 
-      const presenceUserIds = new Set<number>();
-      friendsData.forEach((friend) => presenceUserIds.add(friend.id));
-      incomingData.forEach((request) => presenceUserIds.add(request.from_user));
-      outgoingData.forEach((request) => presenceUserIds.add(request.to_user));
-      dialogsData.forEach((dialog) => {
-        if (dialog.dm_user1 && dialog.dm_user1 !== me.id) {
-          presenceUserIds.add(dialog.dm_user1);
-        }
-        if (dialog.dm_user2 && dialog.dm_user2 !== me.id) {
-          presenceUserIds.add(dialog.dm_user2);
-        }
-      });
-
       try {
+        const presenceUserIds = new Set<number>();
+        friendsData.forEach((friend) => presenceUserIds.add(friend.id));
+        incomingData.forEach((request) =>
+          presenceUserIds.add(request.from_user),
+        );
+        outgoingData.forEach((request) => presenceUserIds.add(request.to_user));
+        dialogsData.forEach((dialog) => {
+          if (dialog.dm_user1 && dialog.dm_user1 !== me.id) {
+            presenceUserIds.add(dialog.dm_user1);
+          }
+          if (dialog.dm_user2 && dialog.dm_user2 !== me.id) {
+            presenceUserIds.add(dialog.dm_user2);
+          }
+        });
+
         const statuses = await getUsersPresence([...presenceUserIds]);
         const nextPresenceMap: Record<number, UserPresenceStatus> = {};
         statuses.forEach((statusItem) => {
@@ -122,6 +162,15 @@ export default function FriendsPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  useEffect(() => {
+    void refreshPresence();
+    const intervalId = window.setInterval(() => {
+      void refreshPresence();
+    }, PRESENCE_REFRESH_INTERVAL_MS);
+
+    return () => window.clearInterval(intervalId);
+  }, [refreshPresence]);
 
   const normalizedUsername = username.trim().toLowerCase();
 

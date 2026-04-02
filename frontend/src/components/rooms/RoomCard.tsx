@@ -111,6 +111,9 @@ export default function RoomCard({ room, onJoin }: RoomCardProps) {
           {`${room.member_count} member${room.member_count !== 1 ? "s" : ""}`}
         </MetaPill>
         <MetaPill>Owner: {room.owner_username}</MetaPill>
+        {room.unread_count > 0 && (
+          <MetaPill tone="danger">Unread: {room.unread_count}</MetaPill>
+        )}
         {room.joined && <MetaPill tone="success">Joined</MetaPill>}
         {room.my_role && (
           <MetaPill tone="accent">Role: {room.my_role}</MetaPill>

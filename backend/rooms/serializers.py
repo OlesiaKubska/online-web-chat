@@ -29,6 +29,7 @@ class RoomSerializer(serializers.ModelSerializer):
     member_count = serializers.SerializerMethodField()
     joined = serializers.SerializerMethodField()
     my_role = serializers.SerializerMethodField()
+    unread_count = serializers.SerializerMethodField()
     is_direct = serializers.BooleanField(read_only=True)
     dm_user1 = serializers.IntegerField(source='dm_user1_id', read_only=True)
     dm_user2 = serializers.IntegerField(source='dm_user2_id', read_only=True)
@@ -52,6 +53,7 @@ class RoomSerializer(serializers.ModelSerializer):
             'member_count',
             'joined',
             'my_role',
+            'unread_count',
             'created_at',
         ]
         read_only_fields = ['id', 'owner', 'created_at']
@@ -74,6 +76,21 @@ class RoomSerializer(serializers.ModelSerializer):
         if not membership:
             return None
         return membership.role
+
+    def get_unread_count(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return 0
+
+        membership = obj.memberships.filter(user=request.user).first()
+        if not membership:
+            return 0
+
+        unread_messages = obj.messages.exclude(user=request.user)
+        if membership.last_read_at:
+            unread_messages = unread_messages.filter(created_at__gt=membership.last_read_at)
+
+        return unread_messages.count()
 
 
 class CreateRoomSerializer(serializers.ModelSerializer):

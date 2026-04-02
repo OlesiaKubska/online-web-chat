@@ -83,6 +83,20 @@ export function DirectDialogsSection({
                           : undefined
                       }
                     />
+                    {dialog.unread_count > 0 && (
+                      <div
+                        style={{
+                          padding: "2px 8px",
+                          borderRadius: "999px",
+                          border: `1px solid ${palette.danger}`,
+                          color: palette.danger,
+                          fontSize: "12px",
+                          fontWeight: 700,
+                        }}
+                      >
+                        Unread: {dialog.unread_count}
+                      </div>
+                    )}
                   </div>
                   <button
                     type="button"

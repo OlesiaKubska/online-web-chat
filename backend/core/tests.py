@@ -2,6 +2,8 @@ from datetime import timedelta
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.utils import timezone
+from rest_framework import status
+from rest_framework.test import APITestCase
 
 from .models import UserPresence
 from .services import (
@@ -105,3 +107,36 @@ class PresenceServiceTestCase(TestCase):
         old_time = timezone.now() - timedelta(seconds=RECENT_PRESENCE_SECONDS + 1)
         UserPresence.objects.filter(user=user).update(last_seen=old_time)
         self.assertEqual(get_user_presence(user), 'offline')
+
+
+class PresenceApiLatencyTests(APITestCase):
+    def setUp(self):
+        self.alice = User.objects.create_user(
+            username='presence-alice',
+            email='presence-alice@example.com',
+            password='pass12345',
+        )
+        self.client.force_login(self.alice)
+
+    def test_presence_users_reflects_latest_heartbeat_immediately(self):
+        afk = self.client.post(
+            '/api/presence/heartbeat/',
+            {'session_id': 's1', 'tab_id': 't1', 'status': 'afk'},
+            format='json',
+        )
+        self.assertEqual(afk.status_code, status.HTTP_200_OK)
+
+        users_afk = self.client.get(f'/api/presence/users/?ids={self.alice.id}')
+        self.assertEqual(users_afk.status_code, status.HTTP_200_OK)
+        self.assertEqual(users_afk.data[0]['status'], 'afk')
+
+        online = self.client.post(
+            '/api/presence/heartbeat/',
+            {'session_id': 's1', 'tab_id': 't1', 'status': 'online'},
+            format='json',
+        )
+        self.assertEqual(online.status_code, status.HTTP_200_OK)
+
+        users_online = self.client.get(f'/api/presence/users/?ids={self.alice.id}')
+        self.assertEqual(users_online.status_code, status.HTTP_200_OK)
+        self.assertEqual(users_online.data[0]['status'], 'online')

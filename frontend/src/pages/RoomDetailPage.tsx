@@ -40,6 +40,7 @@ import {
 } from "../lib/friendsApi";
 
 type FriendRelationStatus = "none" | "friend" | "outgoing" | "incoming";
+const PRESENCE_REFRESH_INTERVAL_MS = 5000;
 
 export default function RoomDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -229,7 +230,7 @@ export default function RoomDetailPage() {
     void fetchPresence();
     const intervalId = window.setInterval(() => {
       void fetchPresence();
-    }, 15000);
+    }, PRESENCE_REFRESH_INTERVAL_MS);
 
     return () => {
       cancelled = true;

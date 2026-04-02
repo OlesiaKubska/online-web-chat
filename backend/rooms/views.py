@@ -3,6 +3,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.utils.dateparse import parse_datetime
+from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from django.http import FileResponse
 from django.contrib.auth import get_user_model
@@ -301,6 +302,8 @@ class RoomMessageListCreateView(APIView):
     def get(self, request, pk):
         room = self.get_room(pk)
         ensure_room_member(room, request.user)
+
+        RoomMembership.objects.filter(room=room, user=request.user).update(last_read_at=timezone.now())
 
         messages = Message.objects.filter(room=room).select_related(
             'user',
