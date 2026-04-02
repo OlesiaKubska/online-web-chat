@@ -12,21 +12,13 @@ import {
 import { getCurrentUser, type User } from "../lib/roomsApi";
 import { PageShell } from "../components/rooms/PageShell";
 import { TopBar } from "../components/rooms/TopBar";
-import SectionShell from "../components/rooms/SectionShell";
-import { Panel } from "../components/rooms/Panel";
+import { palette } from "../styles/roomsTheme";
 import {
-  palette,
-  inputStyle,
-  primaryButtonStyle,
-  secondaryButtonStyle,
-  dangerButtonStyle,
-} from "../styles/roomsTheme";
-
-interface NavItem {
-  label: string;
-  path: string;
-  subtitle: string;
-}
+  QuickNavigationSection,
+  type NavItem,
+} from "../components/home/QuickNavigationSection";
+import { SessionSection } from "../components/home/SessionSection";
+import { AccountSecuritySection } from "../components/home/AccountSecuritySection";
 
 const quickNavItems: NavItem[] = [
   { label: "Home", path: "/", subtitle: "Overview and shortcuts" },
@@ -192,19 +184,6 @@ export default function HomePage() {
     boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
   } as const;
 
-  const navGridStyle = {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-    gap: "12px",
-  } as const;
-
-  const authActionGridStyle = {
-    marginTop: "14px",
-    display: "flex",
-    gap: "10px",
-    flexWrap: "wrap",
-  } as const;
-
   return (
     <PageShell>
       <div style={{ maxWidth: "1280px", margin: "0 auto" }}>
@@ -276,321 +255,48 @@ export default function HomePage() {
             alignItems: "start",
           }}
         >
-          <SectionShell
-            title="Quick Navigation"
-            subtitle="Jump to key pages of the application."
-            count={quickNavItems.length}
-          >
-            <div style={navGridStyle}>
-              {quickNavItems.map((item) => (
-                <Panel key={item.path}>
-                  <div style={{ fontWeight: 700, fontSize: "18px" }}>
-                    {item.label}
-                  </div>
-                  <div
-                    style={{
-                      marginTop: "6px",
-                      color: palette.textMuted,
-                      fontSize: "14px",
-                    }}
-                  >
-                    {item.subtitle}
-                  </div>
+          <QuickNavigationSection
+            items={quickNavItems}
+            onOpen={(path) => navigate(path)}
+          />
 
-                  <button
-                    type="button"
-                    onClick={() => navigate(item.path)}
-                    style={{ ...secondaryButtonStyle, marginTop: "14px" }}
-                  >
-                    Open {item.label}
-                  </button>
-                </Panel>
-              ))}
-            </div>
-          </SectionShell>
-
-          <SectionShell
-            title="Session"
-            subtitle={
-              loading
-                ? "Checking your authentication state..."
-                : user
-                  ? "You are signed in."
-                  : "You are currently not signed in."
-            }
-            count={user ? 1 : 0}
-          >
-            {loading ? (
-              <Panel>
-                <div style={{ color: palette.textSoft, fontSize: "16px" }}>
-                  Loading profile...
-                </div>
-              </Panel>
-            ) : user ? (
-              <Panel>
-                <div style={{ fontWeight: 700, fontSize: "20px" }}>
-                  {user.username}
-                </div>
-                <div
-                  style={{
-                    marginTop: "8px",
-                    color: palette.textMuted,
-                    fontSize: "14px",
-                  }}
-                >
-                  {user.email}
-                </div>
-
-                <div style={authActionGridStyle}>
-                  <button
-                    type="button"
-                    onClick={() => navigate("/rooms")}
-                    style={primaryButtonStyle}
-                  >
-                    Go to Rooms
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => navigate("/friends")}
-                    style={secondaryButtonStyle}
-                  >
-                    Go to Friends
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    disabled={loggingOut}
-                    style={{
-                      ...dangerButtonStyle,
-                      width: "auto",
-                      opacity: loggingOut ? 0.7 : 1,
-                    }}
-                  >
-                    {loggingOut ? "Logging out..." : "Logout"}
-                  </button>
-                </div>
-              </Panel>
-            ) : (
-              <Panel>
-                <div style={{ color: palette.textSoft, fontSize: "16px" }}>
-                  Sign in to access rooms, friends, and direct chat features.
-                </div>
-                <div style={authActionGridStyle}>
-                  <button
-                    type="button"
-                    onClick={() => navigate("/login")}
-                    style={primaryButtonStyle}
-                  >
-                    Login
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => navigate("/register")}
-                    style={secondaryButtonStyle}
-                  >
-                    Register
-                  </button>
-                </div>
-              </Panel>
-            )}
-          </SectionShell>
+          <SessionSection
+            loading={loading}
+            user={user}
+            loggingOut={loggingOut}
+            onGoRooms={() => navigate("/rooms")}
+            onGoFriends={() => navigate("/friends")}
+            onLogin={() => navigate("/login")}
+            onRegister={() => navigate("/register")}
+            onLogout={handleLogout}
+          />
         </div>
 
         {user ? (
-          <SectionShell
-            title="Account Security"
-            subtitle="Manage password, active sessions, and account lifecycle actions."
-            count={3}
-          >
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-                gap: "16px",
-              }}
-            >
-              <Panel>
-                <h3 style={{ margin: "0 0 10px", fontSize: "20px" }}>
-                  Change Password
-                </h3>
-                <form onSubmit={handleChangePassword}>
-                  <div style={{ marginBottom: "10px" }}>
-                    <label>Current Password</label>
-                    <input
-                      type="password"
-                      value={oldPassword}
-                      onChange={(e) => setOldPassword(e.target.value)}
-                      required
-                      style={inputStyle}
-                    />
-                  </div>
-                  <div style={{ marginBottom: "10px" }}>
-                    <label>New Password</label>
-                    <input
-                      type="password"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      required
-                      style={inputStyle}
-                    />
-                  </div>
-                  <button type="submit" style={primaryButtonStyle}>
-                    Update Password
-                  </button>
-                </form>
-                {passwordActionMessage ? (
-                  <p
-                    style={{
-                      marginTop: "10px",
-                      color: passwordActionSuccess
-                        ? palette.secondary
-                        : palette.danger,
-                    }}
-                  >
-                    {passwordActionMessage}
-                  </p>
-                ) : null}
-              </Panel>
-
-              <Panel>
-                <h3 style={{ margin: "0 0 10px", fontSize: "20px" }}>
-                  Active Sessions
-                </h3>
-                <p
-                  style={{
-                    margin: "0 0 10px",
-                    color: palette.textMuted,
-                    fontSize: "14px",
-                  }}
-                >
-                  Review active browser sessions and revoke any session you do
-                  not trust.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => void loadActiveSessions()}
-                  style={secondaryButtonStyle}
-                  disabled={sessionsLoading}
-                >
-                  {sessionsLoading ? "Refreshing..." : "Refresh Sessions"}
-                </button>
-
-                {sessionsError ? (
-                  <p style={{ marginTop: "10px", color: palette.danger }}>
-                    {sessionsError}
-                  </p>
-                ) : null}
-
-                <div
-                  style={{ marginTop: "12px", display: "grid", gap: "10px" }}
-                >
-                  {sessions.map((session) => (
-                    <div
-                      key={session.session_key}
-                      style={{
-                        border: `1px solid ${palette.border}`,
-                        borderRadius: "12px",
-                        padding: "10px",
-                        background: palette.cardSoft,
-                      }}
-                    >
-                      <div style={{ fontWeight: 700, marginBottom: "4px" }}>
-                        {session.is_current
-                          ? "Current browser"
-                          : "Other browser"}
-                      </div>
-                      <div
-                        style={{ fontSize: "13px", color: palette.textMuted }}
-                      >
-                        Expires: {new Date(session.expires_at).toLocaleString()}
-                      </div>
-                      <div
-                        style={{ fontSize: "13px", color: palette.textMuted }}
-                      >
-                        IP: {session.ip_address || "Unknown"}
-                      </div>
-                      <div
-                        style={{
-                          marginTop: "4px",
-                          fontSize: "12px",
-                          color: palette.textMuted,
-                          wordBreak: "break-word",
-                        }}
-                      >
-                        {session.user_agent || "Unknown browser"}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          void handleRevokeSession(session.session_key)
-                        }
-                        style={{
-                          ...dangerButtonStyle,
-                          marginTop: "8px",
-                          width: "auto",
-                        }}
-                        disabled={revokingSessionKey === session.session_key}
-                      >
-                        {revokingSessionKey === session.session_key
-                          ? "Revoking..."
-                          : session.is_current
-                            ? "Log out this browser"
-                            : "Log out this session"}
-                      </button>
-                    </div>
-                  ))}
-                  {!sessionsLoading && sessions.length === 0 ? (
-                    <div style={{ color: palette.textMuted, fontSize: "14px" }}>
-                      No active sessions found.
-                    </div>
-                  ) : null}
-                </div>
-              </Panel>
-
-              <Panel>
-                <h3 style={{ margin: "0 0 10px", fontSize: "20px" }}>
-                  Delete Account
-                </h3>
-                <p
-                  style={{
-                    margin: "0 0 10px",
-                    color: palette.textMuted,
-                    fontSize: "14px",
-                  }}
-                >
-                  This permanently deletes your account and rooms you own.
-                </p>
-                <form onSubmit={handleDeleteAccount}>
-                  <div style={{ marginBottom: "10px" }}>
-                    <label>Current Password (optional)</label>
-                    <input
-                      type="password"
-                      value={deletePassword}
-                      onChange={(e) => setDeletePassword(e.target.value)}
-                      style={inputStyle}
-                    />
-                  </div>
-                  <button type="submit" style={dangerButtonStyle}>
-                    Delete My Account
-                  </button>
-                </form>
-                {deleteActionMessage ? (
-                  <p
-                    style={{
-                      marginTop: "10px",
-                      color: deleteActionSuccess
-                        ? palette.secondary
-                        : palette.danger,
-                    }}
-                  >
-                    {deleteActionMessage}
-                  </p>
-                ) : null}
-              </Panel>
-            </div>
-          </SectionShell>
+          <AccountSecuritySection
+            oldPassword={oldPassword}
+            newPassword={newPassword}
+            onOldPasswordChange={setOldPassword}
+            onNewPasswordChange={setNewPassword}
+            onChangePasswordSubmit={handleChangePassword}
+            passwordActionMessage={passwordActionMessage}
+            passwordActionSuccess={passwordActionSuccess}
+            sessions={sessions}
+            sessionsLoading={sessionsLoading}
+            sessionsError={sessionsError}
+            revokingSessionKey={revokingSessionKey}
+            onRefreshSessions={() => {
+              void loadActiveSessions();
+            }}
+            onRevokeSession={(sessionKey) => {
+              void handleRevokeSession(sessionKey);
+            }}
+            deletePassword={deletePassword}
+            onDeletePasswordChange={setDeletePassword}
+            onDeleteAccountSubmit={handleDeleteAccount}
+            deleteActionMessage={deleteActionMessage}
+            deleteActionSuccess={deleteActionSuccess}
+          />
         ) : null}
       </div>
     </PageShell>
