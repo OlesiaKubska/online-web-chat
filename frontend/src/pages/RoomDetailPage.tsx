@@ -12,6 +12,7 @@ import {
   deleteRoom,
   getRoomMembers,
   updateMemberRole,
+  invitePrivateRoomUser,
 } from "../lib/roomsApi";
 import {
   getRoomMessages,
@@ -77,6 +78,9 @@ export default function RoomDetailPage() {
   const [roomMembers, setRoomMembers] = useState<RoomMember[]>([]);
   const [showMembers, setShowMembers] = useState(false);
   const [membersLoading, setMembersLoading] = useState(false);
+  const [inviteUsername, setInviteUsername] = useState("");
+  const [invitingUser, setInvitingUser] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) {
@@ -505,6 +509,34 @@ export default function RoomDetailPage() {
     });
   };
 
+  const handleInviteUser = async () => {
+    if (!room) {
+      return;
+    }
+
+    const username = inviteUsername.trim();
+    if (!username) {
+      setInviteError("Username is required.");
+      return;
+    }
+
+    try {
+      setInvitingUser(true);
+      setInviteError(null);
+      await invitePrivateRoomUser(room.id, username);
+      setInviteUsername("");
+      if (showMembers) {
+        await loadRoomMembers(room.id);
+      }
+    } catch (err: unknown) {
+      setInviteError(
+        err instanceof Error ? err.message : "Failed to invite user",
+      );
+    } finally {
+      setInvitingUser(false);
+    }
+  };
+
   const handleSendMessage = async () => {
     if (!room) return;
 
@@ -596,6 +628,11 @@ export default function RoomDetailPage() {
         currentUserId={currentUserId}
         sidebarProps={{
           room,
+          inviteUsername,
+          invitingUser,
+          inviteError,
+          onInviteUsernameChange: setInviteUsername,
+          onInviteUser: handleInviteUser,
           actionLoading,
           moderationActionLoadingKey,
           isModerator,

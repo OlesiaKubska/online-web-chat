@@ -6,6 +6,7 @@ from .views import (
     DirectDialogListView,
     DirectDialogCreateOrGetView,
     RoomDetailView,
+    InvitePrivateRoomUserView,
     JoinRoomView,
     LeaveRoomView,
     RoomMessageListCreateView,
@@ -18,6 +19,7 @@ from .views import (
     MessageAttachmentUploadView,
     RoomMemberListView,
     UpdateMemberRoleView,
+    MessageAttachmentDownloadView,
 )
 
 urlpatterns = [
@@ -27,6 +29,7 @@ urlpatterns = [
     path('dialogs/', DirectDialogListView.as_view(), name='direct-dialogs'),
     path('dialogs/create-or-get/', DirectDialogCreateOrGetView.as_view(), name='direct-dialog-create-or-get'),
     path('<int:pk>/', RoomDetailView.as_view(), name='room-detail'),
+    path('<int:pk>/invite/', InvitePrivateRoomUserView.as_view(), name='invite-private-room-user'),
     path('<int:pk>/join/', JoinRoomView.as_view(), name='join-room'),
     path('<int:pk>/leave/', LeaveRoomView.as_view(), name='leave-room'),
     path('<int:pk>/messages/', RoomMessageListCreateView.as_view(), name='room-messages'),
@@ -39,4 +42,5 @@ urlpatterns = [
     path('messages/<int:pk>/', MessageDetailView.as_view(), name='message-detail'),
     path('room-messages/<int:pk>/moderation-delete/', ModerationDeleteMessageView.as_view(), name='moderation-delete-message'),
     path('room-messages/<int:message_id>/attachments/', MessageAttachmentUploadView.as_view(), name='message-attachment-upload'),
+    path('attachments/<int:pk>/download/', MessageAttachmentDownloadView.as_view(), name='message-attachment-download'),
 ]

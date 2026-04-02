@@ -1,4 +1,5 @@
 from django.db import transaction
+from django.urls import reverse
 from rest_framework import serializers
 from .models import Room, RoomMembership, Message, RoomBan, MessageAttachment
 
@@ -118,9 +119,10 @@ class MessageAttachmentSerializer(serializers.ModelSerializer):
 
     def get_file_url(self, obj):
         request = self.context.get("request")
+        url = reverse('message-attachment-download', kwargs={'pk': obj.id})
         if request:
-            return request.build_absolute_uri(obj.file.url)
-        return obj.file.url
+            return request.build_absolute_uri(url)
+        return url
 
 
 class MessageSerializer(serializers.ModelSerializer):

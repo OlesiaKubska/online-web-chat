@@ -13,6 +13,11 @@ import { PresenceBadge } from "./PresenceBadge";
 
 interface RoomSidebarProps {
   room: Room;
+  inviteUsername: string;
+  invitingUser: boolean;
+  inviteError: string | null;
+  onInviteUsernameChange: (value: string) => void;
+  onInviteUser: () => void;
   actionLoading: boolean;
   moderationActionLoadingKey: string | null;
   isModerator: boolean;
@@ -36,6 +41,11 @@ interface RoomSidebarProps {
 
 export function RoomSidebar({
   room,
+  inviteUsername,
+  invitingUser,
+  inviteError,
+  onInviteUsernameChange,
+  onInviteUser,
   actionLoading,
   moderationActionLoadingKey,
   isModerator,
@@ -145,7 +155,7 @@ export function RoomSidebar({
             </button>
           )}
 
-          {isOwner && !room.is_direct && (
+          {isModerator && !room.is_direct && (
             <button
               onClick={onToggleMembers}
               style={{
@@ -246,7 +256,7 @@ export function RoomSidebar({
         </Panel>
       )}
 
-      {isOwner && !room.is_direct && showMembers && (
+      {isModerator && !room.is_direct && showMembers && (
         <Panel>
           <h2 style={panelTitleStyle}>Members</h2>
 
@@ -263,7 +273,7 @@ export function RoomSidebar({
               {roomMembers.map((member) => {
                 const loading =
                   moderationActionLoadingKey === `role-${member.user_id}`;
-                const canPromote = member.role === "member";
+                const canPromote = isOwner && member.role === "member";
                 const canDemote = member.role === "admin";
 
                 return (
@@ -342,6 +352,52 @@ export function RoomSidebar({
               })}
             </div>
           )}
+        </Panel>
+      )}
+
+      {room.visibility === "private" && room.joined && !room.is_direct && (
+        <Panel>
+          <h2 style={panelTitleStyle}>Invite user</h2>
+          <div style={{ display: "grid", gap: "10px" }}>
+            <input
+              type="text"
+              value={inviteUsername}
+              onChange={(event) => onInviteUsernameChange(event.target.value)}
+              placeholder="Enter username"
+              style={{
+                width: "100%",
+                borderRadius: "12px",
+                border: `1px solid ${palette.border}`,
+                backgroundColor: palette.cardSoft,
+                color: palette.text,
+                padding: "10px 12px",
+                fontSize: "14px",
+              }}
+            />
+            <button
+              onClick={onInviteUser}
+              disabled={invitingUser}
+              style={{
+                ...secondaryButtonStyle,
+                width: "100%",
+                opacity: invitingUser ? 0.7 : 1,
+                cursor: invitingUser ? "not-allowed" : "pointer",
+              }}
+            >
+              {invitingUser ? "Inviting..." : "Invite to room"}
+            </button>
+            {inviteError && (
+              <div
+                style={{
+                  color: palette.danger,
+                  fontSize: "13px",
+                  lineHeight: 1.4,
+                }}
+              >
+                {inviteError}
+              </div>
+            )}
+          </div>
         </Panel>
       )}
     </aside>

@@ -4,6 +4,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.utils.dateparse import parse_datetime
 from django.shortcuts import get_object_or_404
+from django.http import FileResponse
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError
 
@@ -168,6 +169,53 @@ class RoomDetailView(generics.RetrieveAPIView):
         
         room.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class InvitePrivateRoomUserView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [CsrfExemptSessionAuthentication]
+
+    def post(self, request, pk):
+        room = get_object_or_404(Room, pk=pk)
+
+        if room.visibility != Room.Visibility.PRIVATE or room.is_direct:
+            return Response(
+                {'detail': 'Invitations are available only for private non-direct rooms.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        ensure_room_member(room, request.user)
+
+        username = (request.data.get('username') or '').strip()
+        if not username:
+            return Response({'detail': 'Username is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        User = get_user_model()
+        invited_user = User.objects.filter(username__iexact=username).first()
+        if not invited_user:
+            return Response({'detail': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if invited_user.id == request.user.id:
+            return Response({'detail': 'You cannot invite yourself.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if RoomBan.objects.filter(room=room, banned_user=invited_user).exists():
+            return Response({'detail': 'Cannot invite a banned user.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        membership, created = RoomMembership.objects.get_or_create(
+            room=room,
+            user=invited_user,
+            defaults={'role': RoomMembership.Role.MEMBER},
+        )
+
+        return Response(
+            {
+                'detail': 'User invited successfully.' if created else 'User is already a member of this room.',
+                'created': created,
+                'membership': RoomMembershipSerializer(membership).data,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -526,8 +574,10 @@ class UpdateMemberRoleView(APIView):
     def patch(self, request, pk, user_id):
         room = get_object_or_404(Room, pk=pk)
 
-        if not RoomMembership.is_owner(request.user, room):
-            raise PermissionDenied('Only the room owner can change member roles.')
+        is_owner = RoomMembership.is_owner(request.user, room)
+        is_admin = RoomMembership.is_admin(request.user, room)
+        if not is_owner and not is_admin:
+            raise PermissionDenied('Only room moderators can change member roles.')
 
         membership = get_object_or_404(RoomMembership, room=room, user_id=user_id)
 
@@ -549,6 +599,10 @@ class UpdateMemberRoleView(APIView):
                 {'detail': 'Role must be "admin" or "member".'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        if not is_owner:
+            if membership.role != RoomMembership.Role.ADMIN or new_role != RoomMembership.Role.MEMBER:
+                raise PermissionDenied('Admins can only demote other admins to member.')
 
         membership.role = new_role
         membership.save(update_fields=['role'])
@@ -583,3 +637,26 @@ class MessageAttachmentUploadView(APIView):
             attachment, context={"request": request}
         )
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class MessageAttachmentDownloadView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [CsrfExemptSessionAuthentication]
+
+    def get(self, request, pk):
+        attachment = get_object_or_404(
+            MessageAttachment.objects.select_related('message__room'),
+            pk=pk,
+        )
+        ensure_room_member(attachment.message.room, request.user)
+
+        file_field = attachment.file
+        if not file_field:
+            raise NotFound('Attachment file not found.')
+
+        try:
+            file_field.open('rb')
+        except FileNotFoundError:
+            raise NotFound('Attachment file not found.')
+
+        return FileResponse(file_field, as_attachment=False, filename=attachment.original_name)

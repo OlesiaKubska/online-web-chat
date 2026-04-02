@@ -18,6 +18,12 @@ export interface LeaveRoomResponse {
   detail: string
 }
 
+export interface InviteRoomUserResponse {
+  detail: string
+  created: boolean
+  membership: RoomMember
+}
+
 export async function getCurrentUser(): Promise<User> {
   return apiRequest<User>('/auth/me/')
 }
@@ -92,6 +98,16 @@ export async function leaveRoom(id: number): Promise<LeaveRoomResponse> {
 
 export async function getRoomMembers(roomId: number): Promise<RoomMember[]> {
   return apiRequest<RoomMember[]>(`/rooms/${roomId}/members/`)
+}
+
+export async function invitePrivateRoomUser(
+  roomId: number,
+  username: string
+): Promise<InviteRoomUserResponse> {
+  return apiRequest<InviteRoomUserResponse>(`/rooms/${roomId}/invite/`, {
+    method: 'POST',
+    body: JSON.stringify({ username }),
+  })
 }
 
 export async function updateMemberRole(
