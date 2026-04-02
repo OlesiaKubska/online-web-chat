@@ -4,7 +4,10 @@ import {
   apiRequest,
   changePassword,
   deleteAccount,
+  getActiveSessions,
+  revokeSession,
   ApiError,
+  type ActiveSession,
 } from "../lib/api";
 import { getCurrentUser, type User } from "../lib/roomsApi";
 import { PageShell } from "../components/rooms/PageShell";
@@ -55,6 +58,12 @@ export default function HomePage() {
     null,
   );
   const [deleteActionSuccess, setDeleteActionSuccess] = useState(false);
+  const [sessions, setSessions] = useState<ActiveSession[]>([]);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [sessionsError, setSessionsError] = useState<string | null>(null);
+  const [revokingSessionKey, setRevokingSessionKey] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     const loadUser = async () => {
@@ -70,6 +79,15 @@ export default function HomePage() {
 
     loadUser();
   }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setSessions([]);
+      return;
+    }
+
+    void loadActiveSessions();
+  }, [user]);
 
   const handleLogout = async () => {
     try {
@@ -127,6 +145,41 @@ export default function HomePage() {
       } else {
         setDeleteActionMessage("Failed to delete account.");
       }
+    }
+  };
+
+  const loadActiveSessions = async () => {
+    try {
+      setSessionsLoading(true);
+      setSessionsError(null);
+      const nextSessions = await getActiveSessions();
+      setSessions(nextSessions);
+    } catch (err) {
+      setSessionsError(
+        err instanceof Error ? err.message : "Failed to load active sessions.",
+      );
+    } finally {
+      setSessionsLoading(false);
+    }
+  };
+
+  const handleRevokeSession = async (sessionKey: string) => {
+    try {
+      setRevokingSessionKey(sessionKey);
+      setSessionsError(null);
+      const response = await revokeSession(sessionKey);
+      if (response.revoked_current) {
+        setUser(null);
+        navigate("/login");
+        return;
+      }
+      await loadActiveSessions();
+    } catch (err) {
+      setSessionsError(
+        err instanceof Error ? err.message : "Failed to revoke session.",
+      );
+    } finally {
+      setRevokingSessionKey(null);
     }
   };
 
@@ -348,8 +401,8 @@ export default function HomePage() {
         {user ? (
           <SectionShell
             title="Account Security"
-            subtitle="Manage password and account lifecycle actions."
-            count={2}
+            subtitle="Manage password, active sessions, and account lifecycle actions."
+            count={3}
           >
             <div
               style={{
@@ -399,6 +452,101 @@ export default function HomePage() {
                     {passwordActionMessage}
                   </p>
                 ) : null}
+              </Panel>
+
+              <Panel>
+                <h3 style={{ margin: "0 0 10px", fontSize: "20px" }}>
+                  Active Sessions
+                </h3>
+                <p
+                  style={{
+                    margin: "0 0 10px",
+                    color: palette.textMuted,
+                    fontSize: "14px",
+                  }}
+                >
+                  Review active browser sessions and revoke any session you do
+                  not trust.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void loadActiveSessions()}
+                  style={secondaryButtonStyle}
+                  disabled={sessionsLoading}
+                >
+                  {sessionsLoading ? "Refreshing..." : "Refresh Sessions"}
+                </button>
+
+                {sessionsError ? (
+                  <p style={{ marginTop: "10px", color: palette.danger }}>
+                    {sessionsError}
+                  </p>
+                ) : null}
+
+                <div
+                  style={{ marginTop: "12px", display: "grid", gap: "10px" }}
+                >
+                  {sessions.map((session) => (
+                    <div
+                      key={session.session_key}
+                      style={{
+                        border: `1px solid ${palette.border}`,
+                        borderRadius: "12px",
+                        padding: "10px",
+                        background: palette.cardSoft,
+                      }}
+                    >
+                      <div style={{ fontWeight: 700, marginBottom: "4px" }}>
+                        {session.is_current
+                          ? "Current browser"
+                          : "Other browser"}
+                      </div>
+                      <div
+                        style={{ fontSize: "13px", color: palette.textMuted }}
+                      >
+                        Expires: {new Date(session.expires_at).toLocaleString()}
+                      </div>
+                      <div
+                        style={{ fontSize: "13px", color: palette.textMuted }}
+                      >
+                        IP: {session.ip_address || "Unknown"}
+                      </div>
+                      <div
+                        style={{
+                          marginTop: "4px",
+                          fontSize: "12px",
+                          color: palette.textMuted,
+                          wordBreak: "break-word",
+                        }}
+                      >
+                        {session.user_agent || "Unknown browser"}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void handleRevokeSession(session.session_key)
+                        }
+                        style={{
+                          ...dangerButtonStyle,
+                          marginTop: "8px",
+                          width: "auto",
+                        }}
+                        disabled={revokingSessionKey === session.session_key}
+                      >
+                        {revokingSessionKey === session.session_key
+                          ? "Revoking..."
+                          : session.is_current
+                            ? "Log out this browser"
+                            : "Log out this session"}
+                      </button>
+                    </div>
+                  ))}
+                  {!sessionsLoading && sessions.length === 0 ? (
+                    <div style={{ color: palette.textMuted, fontSize: "14px" }}>
+                      No active sessions found.
+                    </div>
+                  ) : null}
+                </div>
               </Panel>
 
               <Panel>

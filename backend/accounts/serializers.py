@@ -121,3 +121,15 @@ class DeleteAccountSerializer(serializers.Serializer):
         user = self.context['request'].user
         with transaction.atomic():
             user.delete()
+
+
+class ActiveSessionSerializer(serializers.Serializer):
+    session_key = serializers.CharField()
+    expires_at = serializers.DateTimeField()
+    is_current = serializers.BooleanField()
+    ip_address = serializers.CharField(allow_blank=True)
+    user_agent = serializers.CharField(allow_blank=True)
+
+
+class RevokeSessionSerializer(serializers.Serializer):
+    session_key = serializers.CharField(required=True, max_length=40)

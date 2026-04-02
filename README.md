@@ -1,4 +1,4 @@
-# Online Chat App
+# Classic Chat App
 
 Full-stack chat application for coursework/homework submission.
 

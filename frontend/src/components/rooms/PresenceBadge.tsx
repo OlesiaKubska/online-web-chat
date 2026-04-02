@@ -17,7 +17,7 @@ const toneByStatus: Record<
   afk: {
     bg: "rgba(255, 184, 77, 0.12)",
     color: palette.warning,
-    label: "afk",
+    label: "AFK",
   },
   offline: {
     bg: "rgba(139, 151, 184, 0.14)",

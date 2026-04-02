@@ -32,25 +32,40 @@ def get_user_presence(user):
     Resolve effective user presence.
 
     Rules:
-    - If ANY recent record is ONLINE -> ONLINE
-    - If there are recent records and ALL are AFK -> AFK
-    - If there are no recent records -> OFFLINE
+    - Aggregate across ALL tabs/sessions using each tab's latest heartbeat.
+    - If ANY tab is ONLINE -> ONLINE
+    - If ALL tabs are AFK (no ONLINE) -> AFK
+    - If there are no active tabs/sessions -> OFFLINE
     """
     recent_threshold = timezone.now() - timedelta(seconds=RECENT_PRESENCE_SECONDS)
 
-    recent_presences = UserPresence.objects.filter(
-        user=user,
-        last_seen__gte=recent_threshold,
+    recent_presences = (
+        UserPresence.objects.filter(
+            user=user,
+            last_seen__gte=recent_threshold,
+        )
+        .order_by('session_id', 'tab_id', '-last_seen')
+        .values('session_id', 'tab_id', 'status')
     )
 
-    if recent_presences.filter(status=UserPresence.Status.ONLINE).exists():
+    # Aggregate by (session_id, tab_id) tuple, keeping latest per tab.
+    latest_status_by_tab = {}
+    for entry in recent_presences:
+        tab_key = (entry['session_id'], entry['tab_id'])
+        if tab_key not in latest_status_by_tab:
+            latest_status_by_tab[tab_key] = entry['status']
+
+    statuses = list(latest_status_by_tab.values())
+    
+    # If ANY tab is ONLINE, user is ONLINE.
+    if any(status == UserPresence.Status.ONLINE for status in statuses):
         return UserPresence.Status.ONLINE
 
-    if recent_presences.exists() and not recent_presences.exclude(
-        status=UserPresence.Status.AFK
-    ).exists():
+    # If there are tabs and ALL are AFK, user is AFK.
+    if statuses and all(status == UserPresence.Status.AFK for status in statuses):
         return UserPresence.Status.AFK
 
+    # No recent presence across any tab -> OFFLINE.
     return OFFLINE
 
 

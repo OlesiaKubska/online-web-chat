@@ -223,7 +223,7 @@ export function usePresence() {
       if (document.visibilityState === 'visible') {
         handleActivity()
       } else {
-        localStatusRef.current = 'afk'
+        // Hidden tabs should transition to AFK based on inactivity timeout, not immediately.
         upsertTabState()
       }
     }

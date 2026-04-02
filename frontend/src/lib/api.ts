@@ -204,3 +204,22 @@ export async function deleteAccount(payload: DeleteAccountPayload): Promise<{ me
     body: JSON.stringify(payload),
   })
 }
+
+export interface ActiveSession {
+  session_key: string
+  expires_at: string
+  is_current: boolean
+  ip_address: string
+  user_agent: string
+}
+
+export async function getActiveSessions(): Promise<ActiveSession[]> {
+  return apiRequest<ActiveSession[]>('/auth/sessions/')
+}
+
+export async function revokeSession(sessionKey: string): Promise<{ message: string; revoked_current: boolean }> {
+  return apiRequest<{ message: string; revoked_current: boolean }>('/auth/sessions/revoke/', {
+    method: 'POST',
+    body: JSON.stringify({ session_key: sessionKey }),
+  })
+}
