@@ -108,7 +108,7 @@ export async function uploadMessageAttachment(
   formData.append('file', file)
   formData.append('comment', comment)
 
-  const response = await fetch(`${API_BASE_URL}/room-messages/${messageId}/attachments/`, {
+  const response = await fetch(`${API_BASE_URL}/rooms/room-messages/${messageId}/attachments/`, {
     method: 'POST',
     credentials: 'include',
     body: formData,

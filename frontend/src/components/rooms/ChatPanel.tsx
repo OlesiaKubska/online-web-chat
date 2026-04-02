@@ -19,10 +19,17 @@ interface ChatPanelProps {
   messageContent: string;
   onMessageChange: (content: string) => void;
   onSendMessage: () => void;
+  pendingAttachments: File[];
+  onPendingAttachmentsChange: (files: FileList | null) => void;
+  onRemovePendingAttachment: (index: number) => void;
+  uploadingAttachments: boolean;
   sendingMessage: boolean;
   replyTo: Message | null;
   onReply: (message: Message) => void;
   onCancelReply: () => void;
+  onLoadOlderMessages: () => void;
+  loadingOlderMessages: boolean;
+  hasMoreMessages: boolean;
   currentUserId: number | null;
   editingMessageId: number | null;
   editingMessageContent: string;
@@ -49,10 +56,17 @@ export function ChatPanel({
   messageContent,
   onMessageChange,
   onSendMessage,
+  pendingAttachments,
+  onPendingAttachmentsChange,
+  onRemovePendingAttachment,
+  uploadingAttachments,
   sendingMessage,
   replyTo,
   onReply,
   onCancelReply,
+  onLoadOlderMessages,
+  loadingOlderMessages,
+  hasMoreMessages,
   currentUserId,
   editingMessageId,
   editingMessageContent,
@@ -73,7 +87,10 @@ export function ChatPanel({
   const orderedMessages = [...messages].reverse();
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
-  const canModerateRoom = room.my_role === "owner" || room.my_role === "admin";
+  const olderMessagesSentinelRef = useRef<HTMLDivElement | null>(null);
+  const attachmentInputRef = useRef<HTMLInputElement | null>(null);
+  const canModerateRoom =
+    !room.is_direct && (room.my_role === "owner" || room.my_role === "admin");
 
   useEffect(() => {
     const container = messagesContainerRef.current;
@@ -88,6 +105,38 @@ export function ChatPanel({
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
+
+  useEffect(() => {
+    const sentinel = olderMessagesSentinelRef.current;
+    if (
+      !sentinel ||
+      !hasMoreMessages ||
+      loadingOlderMessages ||
+      messagesLoading
+    ) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          onLoadOlderMessages();
+        }
+      },
+      {
+        root: null,
+        threshold: 0.1,
+      },
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [
+    hasMoreMessages,
+    loadingOlderMessages,
+    messagesLoading,
+    onLoadOlderMessages,
+  ]);
 
   return (
     <Panel>
@@ -127,10 +176,10 @@ export function ChatPanel({
             }
           >
             {wsStatus === "connected"
-              ? "🟢 Live"
+              ? "Live"
               : wsStatus === "connecting"
-                ? "🟡 Connecting..."
-                : "🔴 Offline"}
+                ? "Connecting..."
+                : "Offline"}
           </MetaPill>
 
           <MetaPill tone={room.joined ? "success" : "default"}>
@@ -205,7 +254,6 @@ export function ChatPanel({
               color: palette.textMuted,
             }}
           >
-            <div style={{ fontSize: "24px" }}>⏳</div>
             <div style={{ fontSize: "14px" }}>Loading messages...</div>
           </div>
         )}
@@ -222,7 +270,6 @@ export function ChatPanel({
               textAlign: "center",
             }}
           >
-            <div style={{ fontSize: "24px" }}>⚠️</div>
             <div style={{ fontSize: "16px", fontWeight: 600 }}>
               Failed to load messages
             </div>
@@ -244,7 +291,6 @@ export function ChatPanel({
               textAlign: "center",
             }}
           >
-            <div style={{ fontSize: "48px", opacity: 0.5 }}>💬</div>
             <div>
               <div
                 style={{
@@ -272,6 +318,18 @@ export function ChatPanel({
               gap: "12px",
             }}
           >
+            <div ref={olderMessagesSentinelRef} style={{ height: "1px" }} />
+            {loadingOlderMessages && (
+              <div
+                style={{
+                  textAlign: "center",
+                  color: palette.textMuted,
+                  fontSize: "13px",
+                }}
+              >
+                Loading older messages...
+              </div>
+            )}
             {orderedMessages.map((message) => (
               <div
                 key={message.id}
@@ -663,52 +721,153 @@ export function ChatPanel({
         style={{
           marginTop: "18px",
           display: "grid",
-          gridTemplateColumns: "minmax(0, 1fr) auto",
-          gap: "12px",
+          gap: "10px",
           fontSize: "14px",
         }}
       >
-        <textarea
-          placeholder="Type a message..."
-          value={messageContent}
-          onChange={(e) => onMessageChange(e.target.value)}
-          onKeyDown={(e) => {
-            if (
-              e.key === "Enter" &&
-              !e.shiftKey &&
-              !sendingMessage &&
-              messageContent.trim()
-            ) {
-              e.preventDefault();
-              onSendMessage();
-            }
-          }}
-          disabled={!room.joined || sendingMessage}
+        <div
           style={{
-            ...inputStyle,
-            minHeight: "56px",
-            resize: "vertical",
-          }}
-        />
-        <button
-          type="button"
-          onClick={onSendMessage}
-          disabled={!room.joined || !messageContent.trim() || sendingMessage}
-          style={{
-            ...secondaryButtonStyle,
-            minWidth: "120px",
-            opacity:
-              !room.joined || !messageContent.trim() || sendingMessage
-                ? 0.6
-                : 1,
-            cursor:
-              !room.joined || !messageContent.trim() || sendingMessage
-                ? "not-allowed"
-                : "pointer",
+            display: "flex",
+            gap: "10px",
+            alignItems: "center",
+            flexWrap: "wrap",
           }}
         >
-          {sendingMessage ? "Sending..." : "Send"}
-        </button>
+          <input
+            ref={attachmentInputRef}
+            type="file"
+            multiple
+            onChange={(event) => onPendingAttachmentsChange(event.target.files)}
+            disabled={!room.joined || sendingMessage || uploadingAttachments}
+            style={{ display: "none" }}
+          />
+          <button
+            type="button"
+            onClick={() => attachmentInputRef.current?.click()}
+            disabled={!room.joined || sendingMessage || uploadingAttachments}
+            style={{
+              ...secondaryButtonStyle,
+              minWidth: "auto",
+              padding: "6px 10px",
+              fontSize: "13px",
+              opacity:
+                !room.joined || sendingMessage || uploadingAttachments
+                  ? 0.6
+                  : 1,
+              cursor:
+                !room.joined || sendingMessage || uploadingAttachments
+                  ? "not-allowed"
+                  : "pointer",
+            }}
+          >
+            Choose files
+          </button>
+          <input
+            type="text"
+            readOnly
+            value={
+              pendingAttachments.length > 0
+                ? `${pendingAttachments.length} file${
+                    pendingAttachments.length === 1 ? "" : "s"
+                  } selected`
+                : "No files selected"
+            }
+            aria-label="Selected files"
+            style={{
+              ...inputStyle,
+              fontSize: "13px",
+              minHeight: "40px",
+              padding: "8px 10px",
+            }}
+          />
+        </div>
+
+        {pendingAttachments.length > 0 && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+            {pendingAttachments.map((file, index) => (
+              <button
+                key={`${file.name}-${index}`}
+                type="button"
+                onClick={() => onRemovePendingAttachment(index)}
+                disabled={sendingMessage || uploadingAttachments}
+                style={{
+                  ...secondaryButtonStyle,
+                  minWidth: "auto",
+                  padding: "6px 10px",
+                  fontSize: "12px",
+                }}
+              >
+                Remove {file.name}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "minmax(0, 1fr) auto",
+            gap: "12px",
+          }}
+        >
+          <textarea
+            placeholder="Type a message..."
+            value={messageContent}
+            onChange={(e) => onMessageChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (
+                e.key === "Enter" &&
+                !e.shiftKey &&
+                !sendingMessage &&
+                !uploadingAttachments &&
+                messageContent.trim()
+              ) {
+                e.preventDefault();
+                onSendMessage();
+              }
+            }}
+            disabled={!room.joined || sendingMessage || uploadingAttachments}
+            style={{
+              ...inputStyle,
+              minHeight: "56px",
+              resize: "vertical",
+            }}
+          />
+          <button
+            type="button"
+            onClick={onSendMessage}
+            disabled={
+              !room.joined ||
+              !messageContent.trim() ||
+              sendingMessage ||
+              uploadingAttachments
+            }
+            style={{
+              ...secondaryButtonStyle,
+              minWidth: "120px",
+              opacity:
+                !room.joined ||
+                !messageContent.trim() ||
+                sendingMessage ||
+                uploadingAttachments
+                  ? 0.6
+                  : 1,
+              cursor:
+                !room.joined ||
+                !messageContent.trim() ||
+                sendingMessage ||
+                uploadingAttachments
+                  ? "not-allowed"
+                  : "pointer",
+            }}
+          >
+            {sendingMessage
+              ? "Sending..."
+              : uploadingAttachments
+                ? "Uploading..."
+                : "Send"}
+          </button>
+        </div>
       </div>
     </Panel>
   );

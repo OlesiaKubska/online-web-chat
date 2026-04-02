@@ -28,7 +28,7 @@ const quickNavItems: NavItem[] = [
     path: "/friends",
     subtitle: "Manage friends and dialogs",
   },
-  { label: "Login", path: "/login", subtitle: "Sign in to your account" },
+  { label: "Log in", path: "/login", subtitle: "Log in to your account" },
   { label: "Register", path: "/register", subtitle: "Create a new account" },
 ];
 

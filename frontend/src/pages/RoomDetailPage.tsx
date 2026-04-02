@@ -30,6 +30,7 @@ import {
   ApiError,
   getUsersPresence,
   type UserPresenceStatus,
+  uploadMessageAttachment,
 } from "../lib/api";
 import { sendFriendRequestByUsername } from "../lib/friendsApi";
 
@@ -45,8 +46,12 @@ export default function RoomDetailPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [messagesError, setMessagesError] = useState<string | null>(null);
+  const [messagesHasMore, setMessagesHasMore] = useState(true);
+  const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
 
   const [messageContent, setMessageContent] = useState("");
+  const [pendingAttachments, setPendingAttachments] = useState<File[]>([]);
+  const [uploadingAttachments, setUploadingAttachments] = useState(false);
   const [sendingMessage, setSendingMessage] = useState(false);
   const [replyTo, setReplyTo] = useState<Message | null>(null);
 
@@ -105,6 +110,10 @@ export default function RoomDetailPage() {
     setMessages([]);
     setMessagesError(null);
     setMessagesLoading(false);
+    setMessagesHasMore(true);
+    setLoadingOlderMessages(false);
+    setPendingAttachments([]);
+    setUploadingAttachments(false);
     setWsStatus("disconnected");
   }, [room?.joined]);
 
@@ -279,6 +288,7 @@ export default function RoomDetailPage() {
       setMessagesError(null);
       const messagesData = await getRoomMessages(roomId);
       setMessages(messagesData);
+      setMessagesHasMore(messagesData.length === 20);
     } catch (err: unknown) {
       if (err instanceof ApiError && err.status === 403) {
         setMessages([]);
@@ -291,6 +301,39 @@ export default function RoomDetailPage() {
       );
     } finally {
       setMessagesLoading(false);
+    }
+  };
+
+  const handleLoadOlderMessages = async () => {
+    if (!room || loadingOlderMessages || messagesLoading || !messagesHasMore) {
+      return;
+    }
+
+    const oldestMessage = messages[messages.length - 1];
+    if (!oldestMessage) {
+      return;
+    }
+
+    try {
+      setLoadingOlderMessages(true);
+      const olderMessages = await getRoomMessages(
+        room.id,
+        oldestMessage.created_at,
+      );
+
+      setMessages((prev) => {
+        const existingIds = new Set(prev.map((m) => m.id));
+        const uniqueOlder = olderMessages.filter((m) => !existingIds.has(m.id));
+        return [...prev, ...uniqueOlder];
+      });
+
+      setMessagesHasMore(olderMessages.length === 20);
+    } catch (err: unknown) {
+      setMessagesError(
+        err instanceof Error ? err.message : "Failed to load older messages",
+      );
+    } finally {
+      setLoadingOlderMessages(false);
     }
   };
 
@@ -537,6 +580,19 @@ export default function RoomDetailPage() {
     }
   };
 
+  const handlePendingAttachmentsChange = (files: FileList | null) => {
+    if (!files || files.length === 0) {
+      setPendingAttachments([]);
+      return;
+    }
+
+    setPendingAttachments(Array.from(files));
+  };
+
+  const handleRemovePendingAttachment = (index: number) => {
+    setPendingAttachments((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const handleSendMessage = async () => {
     if (!room) return;
 
@@ -546,9 +602,12 @@ export default function RoomDetailPage() {
     try {
       setSendingMessage(true);
       setMessagesError(null);
+      const shouldUseRest =
+        pendingAttachments.length > 0 ||
+        !ws ||
+        ws.readyState !== WebSocket.OPEN;
 
-      // Try to send via WebSocket if available
-      if (ws && ws.readyState === WebSocket.OPEN) {
+      if (!shouldUseRest && ws) {
         ws.send(
           JSON.stringify({
             action: "send_message",
@@ -556,23 +615,39 @@ export default function RoomDetailPage() {
             reply_to: replyTo?.id ?? undefined,
           }),
         );
-        // Message will appear from WebSocket onmessage, not manually appended
       } else {
-        // Fallback to REST if WebSocket not available
         const newMessage = await sendMessage(room.id, {
           content: trimmedContent,
           reply_to: replyTo?.id ?? undefined,
         });
-        setMessages((prev) => [newMessage, ...prev]);
+
+        let nextMessage = newMessage;
+        if (pendingAttachments.length > 0) {
+          setUploadingAttachments(true);
+          const uploaded = await Promise.all(
+            pendingAttachments.map((file) =>
+              uploadMessageAttachment(newMessage.id, file),
+            ),
+          );
+          nextMessage = {
+            ...newMessage,
+            attachments: [...newMessage.attachments, ...uploaded],
+          };
+        }
+
+        setMessages((prev) => [nextMessage, ...prev]);
       }
 
       setMessageContent("");
+      setPendingAttachments([]);
       setReplyTo(null);
     } catch (err: unknown) {
       setMessagesError(
         err instanceof Error ? err.message : "Failed to send message",
       );
     } finally {
+      setSendingMessage(false);
+      setUploadingAttachments;
       setSendingMessage(false);
     }
   };
@@ -661,10 +736,17 @@ export default function RoomDetailPage() {
           messageContent,
           onMessageChange: setMessageContent,
           onSendMessage: handleSendMessage,
+          pendingAttachments,
+          onPendingAttachmentsChange: handlePendingAttachmentsChange,
+          onRemovePendingAttachment: handleRemovePendingAttachment,
+          uploadingAttachments,
           sendingMessage,
           replyTo,
           onReply: setReplyTo,
           onCancelReply: () => setReplyTo(null),
+          onLoadOlderMessages: handleLoadOlderMessages,
+          loadingOlderMessages,
+          hasMoreMessages: messagesHasMore,
           currentUserId,
           editingMessageId,
           editingMessageContent,

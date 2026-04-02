@@ -11,7 +11,7 @@ export function TopBar({ onBack }: TopBarProps) {
       <AppNavBar mode="authenticated" />
       {onBack ? (
         <button onClick={onBack} style={secondaryButtonStyle}>
-          ← Back to rooms
+          Back to rooms
         </button>
       ) : null}
     </div>

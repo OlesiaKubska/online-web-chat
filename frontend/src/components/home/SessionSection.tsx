@@ -96,18 +96,18 @@ export function SessionSection({
                 opacity: loggingOut ? 0.7 : 1,
               }}
             >
-              {loggingOut ? "Logging out..." : "Logout"}
+              {loggingOut ? "Logging out..." : "Log out"}
             </button>
           </div>
         </Panel>
       ) : (
         <Panel>
           <div style={{ color: palette.textSoft, fontSize: "16px" }}>
-            Sign in to access rooms, friends, and direct chat features.
+            Log in to access rooms, friends, and direct chat features.
           </div>
           <div style={authActionGridStyle}>
             <button type="button" onClick={onLogin} style={primaryButtonStyle}>
-              Login
+              Log in
             </button>
             <button
               type="button"

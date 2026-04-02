@@ -5,7 +5,7 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from django.contrib.auth.models import AnonymousUser
 
 from .models import Room, RoomMembership, Message
-from .serializers import MessageSerializer
+from .serializers import MessageSerializer, MAX_MESSAGE_SIZE_BYTES
 from .services import can_write_in_direct_dialog
 
 
@@ -67,6 +67,13 @@ class RoomChatConsumer(AsyncWebsocketConsumer):
             await self.send_json({
                 "type": "error",
                 "detail": "Message content cannot be empty.",
+            })
+            return
+
+        if len(content.encode("utf-8")) > MAX_MESSAGE_SIZE_BYTES:
+            await self.send_json({
+                "type": "error",
+                "detail": "Message content cannot exceed 3 KB.",
             })
             return
 

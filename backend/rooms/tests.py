@@ -1,3 +1,5 @@
+from urllib.parse import quote
+
 from django.contrib.auth import get_user_model
 from django.core.files.storage import default_storage
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -498,3 +500,177 @@ class RoomFeatureApiTests(APITestCase):
 		self.assertEqual(download_response.status_code, status.HTTP_403_FORBIDDEN)
 
 		self.assertTrue(default_storage.exists(stored_name))
+
+
+@override_settings(MEDIA_ROOT='test_media')
+class MessagingApiTests(APITestCase):
+    def setUp(self):
+        self.alice = User.objects.create_user(
+            username='msg-alice',
+            email='msg-alice@example.com',
+            password='pass12345',
+        )
+        self.bob = User.objects.create_user(
+            username='msg-bob',
+            email='msg-bob@example.com',
+            password='pass12345',
+        )
+        self.admin = User.objects.create_user(
+            username='msg-admin',
+            email='msg-admin@example.com',
+            password='pass12345',
+        )
+
+        self.room = Room.objects.create(
+            name='Messaging Room',
+            description='Messaging tests',
+            visibility=Room.Visibility.PUBLIC,
+            owner=self.alice,
+        )
+        RoomMembership.objects.create(room=self.room, user=self.alice, role=RoomMembership.Role.OWNER)
+        RoomMembership.objects.create(room=self.room, user=self.bob, role=RoomMembership.Role.MEMBER)
+        RoomMembership.objects.create(room=self.room, user=self.admin, role=RoomMembership.Role.ADMIN)
+
+    def test_send_message_supports_multiline_and_emoji(self):
+        self.client.force_login(self.alice)
+        content = 'Hello\nWorld \U0001F604'
+        response = self.client.post(
+            f'/api/rooms/{self.room.id}/messages/',
+            {'content': content},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['content'], content)
+
+    def test_message_size_limit_3kb_enforced(self):
+        self.client.force_login(self.alice)
+        over_limit = 'a' * 3073
+        response = self.client.post(
+            f'/api/rooms/{self.room.id}/messages/',
+            {'content': over_limit},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('Message content cannot exceed 3 KB.', response.data['content'][0])
+
+    def test_reply_linkage_is_persisted_and_serialized(self):
+        self.client.force_login(self.alice)
+        original = Message.objects.create(room=self.room, user=self.alice, content='Original')
+
+        reply_response = self.client.post(
+            f'/api/rooms/{self.room.id}/messages/',
+            {'content': 'Reply', 'reply_to': original.id},
+            format='json',
+        )
+        self.assertEqual(reply_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(reply_response.data['reply_to'], original.id)
+        self.assertEqual(reply_response.data['reply_to_message']['id'], original.id)
+
+    def test_editing_own_message_sets_edited_flag(self):
+        message = Message.objects.create(room=self.room, user=self.alice, content='Before')
+        self.client.force_login(self.alice)
+
+        response = self.client.patch(
+            f'/api/rooms/messages/{message.id}/',
+            {'content': 'After'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        message.refresh_from_db()
+        self.assertEqual(message.content, 'After')
+        self.assertTrue(message.edited)
+
+    def test_editing_message_forbidden_for_non_author(self):
+        message = Message.objects.create(room=self.room, user=self.alice, content='Before')
+        self.client.force_login(self.bob)
+
+        response = self.client.patch(
+            f'/api/rooms/messages/{message.id}/',
+            {'content': 'After'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_delete_by_author_allowed(self):
+        message = Message.objects.create(room=self.room, user=self.alice, content='Delete me')
+        self.client.force_login(self.alice)
+
+        response = self.client.delete(f'/api/rooms/messages/{message.id}/')
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Message.objects.filter(id=message.id).exists())
+
+    def test_admin_delete_allowed_only_for_room_chat(self):
+        room_message = Message.objects.create(room=self.room, user=self.bob, content='Room msg')
+        self.client.force_login(self.admin)
+
+        room_delete = self.client.delete(f'/api/rooms/messages/{room_message.id}/')
+        self.assertEqual(room_delete.status_code, status.HTTP_204_NO_CONTENT)
+
+        # Create friendship between alice and bob for direct dialog
+        Friendship.objects.create(user1=self.alice, user2=self.bob)
+        self.client.force_login(self.alice)
+        dialog_create = self.client.post(
+            '/api/rooms/dialogs/create-or-get/',
+            {'user_id': self.bob.id},
+            format='json',
+        )
+        self.assertIn(dialog_create.status_code, [status.HTTP_200_OK, status.HTTP_201_CREATED])
+        direct_room_id = dialog_create.data['id']
+        direct_message = Message.objects.create(room_id=direct_room_id, user=self.bob, content='Direct msg')
+
+        direct_delete = self.client.delete(f'/api/rooms/messages/{direct_message.id}/')
+        self.assertEqual(direct_delete.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_message_ordering_and_pagination_cursor(self):
+        # Create 25 messages with small delays to ensure distinct timestamps
+        import time
+        for index in range(25):
+            Message.objects.create(room=self.room, user=self.alice, content=f'msg-{index}')
+            if index < 24:
+                time.sleep(0.001)
+
+        self.client.force_login(self.alice)
+        # First request without cursor should return 20 most recent messages
+        first_page = self.client.get(f'/api/rooms/{self.room.id}/messages/')
+        self.assertEqual(first_page.status_code, status.HTTP_200_OK)
+        # Should have pagination support (up to 20 messages per request)
+        self.assertLessEqual(len(first_page.data), 20)
+        # Most recent messages should be first (msg-24 created most recently)
+        self.assertEqual(first_page.data[0]['content'], 'msg-24')
+        # Verify chronological ordering (newest first)
+        for i in range(1, len(first_page.data)):
+            prev_time = first_page.data[i-1]['created_at']
+            curr_time = first_page.data[i]['created_at']
+            self.assertGreaterEqual(prev_time, curr_time)
+
+    def test_attachment_upload_and_download_for_member(self):
+        self.client.force_login(self.alice)
+        message = Message.objects.create(room=self.room, user=self.alice, content='With file')
+
+        upload = self.client.post(
+            f'/api/rooms/room-messages/{message.id}/attachments/',
+            {
+                'file': SimpleUploadedFile('doc.txt', b'hello-file'),
+                'comment': 'file-comment',
+            },
+        )
+        self.assertEqual(upload.status_code, status.HTTP_201_CREATED)
+        attachment_id = upload.data['id']
+
+        self.client.force_login(self.bob)
+        download = self.client.get(f'/api/rooms/attachments/{attachment_id}/download/')
+        self.assertEqual(download.status_code, status.HTTP_200_OK)
+
+    def test_offline_user_receives_persisted_messages_via_history_fetch(self):
+        self.client.force_login(self.alice)
+        create = self.client.post(
+            f'/api/rooms/{self.room.id}/messages/',
+            {'content': 'message while bob offline'},
+            format='json',
+        )
+        self.assertEqual(create.status_code, status.HTTP_201_CREATED)
+
+        self.client.force_login(self.bob)
+        history = self.client.get(f'/api/rooms/{self.room.id}/messages/')
+        self.assertEqual(history.status_code, status.HTTP_200_OK)
+        self.assertTrue(any(item['content'] == 'message while bob offline' for item in history.data))

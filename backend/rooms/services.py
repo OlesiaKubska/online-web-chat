@@ -13,6 +13,8 @@ def can_delete_room(user, room):
 
 def can_moderate_message(user, message):
     """Check if user can moderate (delete) any message in the room."""
+    if message.room.is_direct:
+        return False
     return RoomMembership.is_moderator(user, message.room)
 
 
@@ -23,6 +25,8 @@ def can_delete_own_message(user, message):
 
 def can_delete_message(user, message):
     """Check if user can delete the message (own or as moderator)."""
+    if message.room.is_direct:
+        return can_delete_own_message(user, message)
     return can_delete_own_message(user, message) or can_moderate_message(user, message)
 
 

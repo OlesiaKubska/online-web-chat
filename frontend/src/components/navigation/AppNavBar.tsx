@@ -27,7 +27,7 @@ const authLinks: NavLink[] = [
 
 const guestLinks: NavLink[] = [
   { label: "Home", path: "/" },
-  { label: "Login", path: "/login" },
+  { label: "Log in", path: "/login" },
   { label: "Register", path: "/register" },
 ];
 
@@ -95,7 +95,7 @@ export function AppNavBar({ mode }: AppNavBarProps) {
             opacity: loggingOut ? 0.7 : 1,
           }}
         >
-          {loggingOut ? "Logging out..." : "Logout"}
+          {loggingOut ? "Logging out..." : "Log out"}
         </button>
       ) : null}
     </nav>

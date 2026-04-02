@@ -4,6 +4,16 @@ from rest_framework import serializers
 from .models import Room, RoomMembership, Message, RoomBan, MessageAttachment
 
 
+MAX_MESSAGE_SIZE_BYTES = 3 * 1024
+
+
+def validate_message_content_size(value: str) -> str:
+    encoded_length = len(value.encode('utf-8'))
+    if encoded_length > MAX_MESSAGE_SIZE_BYTES:
+        raise serializers.ValidationError('Message content cannot exceed 3 KB.')
+    return value
+
+
 class RoomMembershipSerializer(serializers.ModelSerializer):
     user_id = serializers.IntegerField(source='user.id', read_only=True)
     username = serializers.CharField(source='user.username', read_only=True)
@@ -178,7 +188,7 @@ class CreateMessageSerializer(serializers.ModelSerializer):
         value = value.strip()
         if not value:
             raise serializers.ValidationError('Message content cannot be empty.')
-        return value
+        return validate_message_content_size(value)
 
     def validate_reply_to(self, value):
         room = self.context.get('room')
@@ -206,7 +216,7 @@ class UpdateMessageSerializer(serializers.ModelSerializer):
         value = value.strip()
         if not value:
             raise serializers.ValidationError('Message content cannot be empty.')
-        return value
+        return validate_message_content_size(value)
 
     def update(self, instance, validated_data):
         instance.content = validated_data['content']

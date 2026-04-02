@@ -39,7 +39,7 @@ const RegisterPage = () => {
 
       if (response.ok) {
         setIsSuccess(true);
-        setMessage("Registration successful! Redirecting to login...");
+        setMessage("Registration successful! Redirecting to log in...");
         setEmail("");
         setUsername("");
         setPassword("");

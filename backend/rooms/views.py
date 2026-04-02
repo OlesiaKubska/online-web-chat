@@ -38,6 +38,8 @@ def ensure_room_member(room, user):
 
 
 def ensure_room_moderator(room, user):
+    if room.is_direct:
+        raise PermissionDenied('Direct dialogs do not support room moderation.')
     if not RoomMembership.is_moderator(user, room):
         raise PermissionDenied('You do not have permission to moderate this room.')
 

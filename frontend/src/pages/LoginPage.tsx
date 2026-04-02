@@ -32,7 +32,7 @@ const LoginPage = () => {
     try {
       await login({ email, password });
       setIsSuccess(true);
-      setMessage("Login successful!");
+      setMessage("Logged in successfully!");
       setEmail("");
       setPassword("");
 
@@ -102,7 +102,7 @@ const LoginPage = () => {
 
         <Panel>
           <div style={{ maxWidth: "420px" }}>
-            <h1 style={{ margin: "0 0 14px", fontSize: "40px" }}>Login</h1>
+            <h1 style={{ margin: "0 0 14px", fontSize: "40px" }}>Log in</h1>
 
             <form onSubmit={handleSubmit}>
               <div style={{ marginBottom: "10px" }}>
@@ -128,7 +128,7 @@ const LoginPage = () => {
               </div>
 
               <button type="submit" style={primaryButtonStyle}>
-                Login
+                Log in
               </button>
             </form>
 
