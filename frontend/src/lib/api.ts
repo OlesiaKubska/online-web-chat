@@ -134,3 +134,73 @@ export async function changePassword(payload: ChangePasswordPayload): Promise<{ 
     body: JSON.stringify(payload),
   })
 }
+
+export interface LoginPayload {
+  email: string
+  password: string
+}
+
+export interface AuthUserPayload {
+  id: number
+  username: string
+  email: string
+}
+
+export async function login(payload: LoginPayload): Promise<{ message: string; user: AuthUserPayload }> {
+  return apiRequest<{ message: string; user: AuthUserPayload }>('/auth/login/', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export interface RegisterPayload {
+  email: string
+  username: string
+  password: string
+}
+
+export async function register(payload: RegisterPayload): Promise<AuthUserPayload> {
+  return apiRequest<AuthUserPayload>('/auth/register/', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export interface PasswordResetRequestResponse {
+  message: string
+  reset?: {
+    uid: string
+    token: string
+  }
+}
+
+export async function requestPasswordReset(email: string): Promise<PasswordResetRequestResponse> {
+  return apiRequest<PasswordResetRequestResponse>('/auth/password-reset/request/', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  })
+}
+
+export interface PasswordResetConfirmPayload {
+  uid: string
+  token: string
+  new_password: string
+}
+
+export async function confirmPasswordReset(payload: PasswordResetConfirmPayload): Promise<{ message: string }> {
+  return apiRequest<{ message: string }>('/auth/password-reset/confirm/', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export interface DeleteAccountPayload {
+  current_password?: string
+}
+
+export async function deleteAccount(payload: DeleteAccountPayload): Promise<{ message: string }> {
+  return apiRequest<{ message: string }>('/auth/delete-account/', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}

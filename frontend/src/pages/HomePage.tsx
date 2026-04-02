@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { apiRequest } from "../lib/api";
+import {
+  apiRequest,
+  changePassword,
+  deleteAccount,
+  ApiError,
+} from "../lib/api";
 import { getCurrentUser, type User } from "../lib/roomsApi";
 import { PageShell } from "../components/rooms/PageShell";
 import { TopBar } from "../components/rooms/TopBar";
@@ -8,6 +13,7 @@ import SectionShell from "../components/rooms/SectionShell";
 import { Panel } from "../components/rooms/Panel";
 import {
   palette,
+  inputStyle,
   primaryButtonStyle,
   secondaryButtonStyle,
   dangerButtonStyle,
@@ -38,6 +44,17 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [oldPassword, setOldPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [passwordActionMessage, setPasswordActionMessage] = useState<
+    string | null
+  >(null);
+  const [passwordActionSuccess, setPasswordActionSuccess] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteActionMessage, setDeleteActionMessage] = useState<string | null>(
+    null,
+  );
+  const [deleteActionSuccess, setDeleteActionSuccess] = useState(false);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -65,6 +82,51 @@ export default function HomePage() {
       setError(err instanceof Error ? err.message : "Failed to log out");
     } finally {
       setLoggingOut(false);
+    }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordActionMessage(null);
+
+    try {
+      const response = await changePassword({
+        old_password: oldPassword,
+        new_password: newPassword,
+      });
+      setPasswordActionSuccess(true);
+      setPasswordActionMessage(response.message);
+      setOldPassword("");
+      setNewPassword("");
+    } catch (err) {
+      setPasswordActionSuccess(false);
+      if (err instanceof ApiError) {
+        setPasswordActionMessage(err.message);
+      } else {
+        setPasswordActionMessage("Failed to change password.");
+      }
+    }
+  };
+
+  const handleDeleteAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setDeleteActionMessage(null);
+
+    try {
+      const response = await deleteAccount({
+        current_password: deletePassword || undefined,
+      });
+      setDeleteActionSuccess(true);
+      setDeleteActionMessage(response.message);
+      setUser(null);
+      navigate("/login");
+    } catch (err) {
+      setDeleteActionSuccess(false);
+      if (err instanceof ApiError) {
+        setDeleteActionMessage(err.message);
+      } else {
+        setDeleteActionMessage("Failed to delete account.");
+      }
     }
   };
 
@@ -282,6 +344,106 @@ export default function HomePage() {
             )}
           </SectionShell>
         </div>
+
+        {user ? (
+          <SectionShell
+            title="Account Security"
+            subtitle="Manage password and account lifecycle actions."
+            count={2}
+          >
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+                gap: "16px",
+              }}
+            >
+              <Panel>
+                <h3 style={{ margin: "0 0 10px", fontSize: "20px" }}>
+                  Change Password
+                </h3>
+                <form onSubmit={handleChangePassword}>
+                  <div style={{ marginBottom: "10px" }}>
+                    <label>Current Password</label>
+                    <input
+                      type="password"
+                      value={oldPassword}
+                      onChange={(e) => setOldPassword(e.target.value)}
+                      required
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div style={{ marginBottom: "10px" }}>
+                    <label>New Password</label>
+                    <input
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      required
+                      style={inputStyle}
+                    />
+                  </div>
+                  <button type="submit" style={primaryButtonStyle}>
+                    Update Password
+                  </button>
+                </form>
+                {passwordActionMessage ? (
+                  <p
+                    style={{
+                      marginTop: "10px",
+                      color: passwordActionSuccess
+                        ? palette.secondary
+                        : palette.danger,
+                    }}
+                  >
+                    {passwordActionMessage}
+                  </p>
+                ) : null}
+              </Panel>
+
+              <Panel>
+                <h3 style={{ margin: "0 0 10px", fontSize: "20px" }}>
+                  Delete Account
+                </h3>
+                <p
+                  style={{
+                    margin: "0 0 10px",
+                    color: palette.textMuted,
+                    fontSize: "14px",
+                  }}
+                >
+                  This permanently deletes your account and rooms you own.
+                </p>
+                <form onSubmit={handleDeleteAccount}>
+                  <div style={{ marginBottom: "10px" }}>
+                    <label>Current Password (optional)</label>
+                    <input
+                      type="password"
+                      value={deletePassword}
+                      onChange={(e) => setDeletePassword(e.target.value)}
+                      style={inputStyle}
+                    />
+                  </div>
+                  <button type="submit" style={dangerButtonStyle}>
+                    Delete My Account
+                  </button>
+                </form>
+                {deleteActionMessage ? (
+                  <p
+                    style={{
+                      marginTop: "10px",
+                      color: deleteActionSuccess
+                        ? palette.secondary
+                        : palette.danger,
+                    }}
+                  >
+                    {deleteActionMessage}
+                  </p>
+                ) : null}
+              </Panel>
+            </div>
+          </SectionShell>
+        ) : null}
       </div>
     </PageShell>
   );

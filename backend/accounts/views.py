@@ -1,4 +1,5 @@
 from django.contrib.auth import login, logout, update_session_auth_hash
+from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 
@@ -8,7 +9,13 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .serializers import RegisterSerializer, ChangePasswordSerializer
+from .serializers import (
+    RegisterSerializer,
+    ChangePasswordSerializer,
+    PasswordResetRequestSerializer,
+    PasswordResetConfirmSerializer,
+    DeleteAccountSerializer,
+)
 from .login_serializers import LoginSerializer
 from core.authentication import CsrfExemptSessionAuthentication
 
@@ -77,3 +84,52 @@ class ChangePasswordView(APIView):
         user = serializer.save()
         update_session_auth_hash(request, user)
         return Response({'message': 'Password changed successfully'}, status=status.HTTP_200_OK)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class PasswordResetRequestView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = [CsrfExemptSessionAuthentication]
+
+    def post(self, request):
+        serializer = PasswordResetRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        token_data = serializer.save()
+
+        response_payload = {
+            'message': 'If an account with this email exists, a reset link has been generated.',
+        }
+
+        if settings.DEBUG and token_data:
+            response_payload['reset'] = token_data
+
+        return Response(response_payload, status=status.HTTP_200_OK)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class PasswordResetConfirmView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = [CsrfExemptSessionAuthentication]
+
+    def post(self, request):
+        serializer = PasswordResetConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response({'message': 'Password has been reset successfully.'}, status=status.HTTP_200_OK)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class DeleteAccountView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [CsrfExemptSessionAuthentication]
+
+    def post(self, request):
+        serializer = DeleteAccountSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        # Invalidate only this browser session immediately.
+        logout(request)
+
+        return Response({'message': 'Account deleted successfully.'}, status=status.HTTP_200_OK)
