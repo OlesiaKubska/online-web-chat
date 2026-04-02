@@ -26,6 +26,30 @@ def can_delete_message(user, message):
     return can_delete_own_message(user, message) or can_moderate_message(user, message)
 
 
+def can_write_in_direct_dialog(user, room):
+    """Return whether a user can write in a direct dialog and an error detail when blocked."""
+    if not room.is_direct:
+        return True, None
+
+    if room.dm_user1_id == user.id:
+        other_user = room.dm_user2
+    elif room.dm_user2_id == user.id:
+        other_user = room.dm_user1
+    else:
+        return False, "You are not a participant of this direct dialog."
+
+    if not other_user:
+        return False, "Direct dialog participants are invalid."
+
+    if is_user_banned(user, other_user):
+        return False, "Direct dialog is read-only because one user banned the other."
+
+    if not are_friends(user, other_user):
+        return False, "Direct dialog is read-only because users are no longer friends."
+
+    return True, None
+
+
 @transaction.atomic
 def get_or_create_direct_dialog(user, target_user):
     if user.id == target_user.id:

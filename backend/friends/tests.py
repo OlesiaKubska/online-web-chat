@@ -103,6 +103,20 @@ class FriendsApiFlowTests(APITestCase):
 		self.assertEqual(response.data["from_user"], self.alice.id)
 		self.assertEqual(response.data["to_user"], self.bob.id)
 		self.assertEqual(response.data["status"], FriendRequest.Status.PENDING)
+		self.assertEqual(response.data["message"], "Hello from username flow")
+
+	def test_send_friend_request_by_user_id_persists_optional_text(self):
+		self.client.force_login(self.alice)
+
+		response = self.client.post(
+			"/api/friends/requests/",
+			{"to_user": self.bob.id, "message": "Optional text payload"},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+		self.assertEqual(response.data["message"], "Optional text payload")
+		self.assertEqual(response.data["to_user"], self.bob.id)
 
 	def test_send_friend_request_by_username_to_self_returns_400(self):
 		self.client.force_login(self.alice)
@@ -150,3 +164,25 @@ class FriendsApiFlowTests(APITestCase):
 		self.assertFalse(
 			UserBan.objects.filter(source_user=self.alice, target_user=self.bob).exists()
 		)
+
+	def test_banned_users_cannot_send_friend_requests(self):
+		self.client.force_login(self.alice)
+		ban_response = self.client.post(f"/api/friends/ban/{self.bob.id}/")
+		self.assertEqual(ban_response.status_code, status.HTTP_201_CREATED)
+
+		response = self.client.post(
+			"/api/friends/requests/",
+			{"to_user": self.bob.id, "message": "hello"},
+			format="json",
+		)
+		self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+		self.assertEqual(response.data["detail"], "User is banned.")
+
+		self.client.force_login(self.bob)
+		reverse_response = self.client.post(
+			"/api/friends/requests/",
+			{"to_user": self.alice.id, "message": "hello"},
+			format="json",
+		)
+		self.assertEqual(reverse_response.status_code, status.HTTP_400_BAD_REQUEST)
+		self.assertEqual(reverse_response.data["detail"], "User is banned.")

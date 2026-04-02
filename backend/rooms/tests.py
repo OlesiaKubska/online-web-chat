@@ -4,7 +4,7 @@ from rest_framework.test import APITestCase
 
 from friends.models import Friendship, UserBan
 
-from .models import Room, RoomMembership
+from .models import Room, RoomMembership, Message
 
 
 User = get_user_model()
@@ -124,6 +124,71 @@ class DirectDialogApiTests(APITestCase):
 		self.assertEqual(list_response.status_code, status.HTTP_200_OK)
 		self.assertEqual(len(list_response.data), 1)
 		self.assertTrue(list_response.data[0]['is_direct'])
+
+	def test_banned_users_can_read_direct_history_but_cannot_send_new_messages(self):
+		Friendship.objects.create(user1=self.alice, user2=self.bob)
+		self.client.force_login(self.alice)
+
+		create_response = self.client.post(
+			'/api/rooms/dialogs/create-or-get/',
+			{'user_id': self.bob.id},
+			format='json',
+		)
+		self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+		room_id = create_response.data['id']
+
+		seed_message = Message.objects.create(
+			room_id=room_id,
+			user=self.alice,
+			content='hello before ban',
+		)
+		self.assertIsNotNone(seed_message.id)
+
+		ban_response = self.client.post(f'/api/friends/ban/{self.bob.id}/')
+		self.assertEqual(ban_response.status_code, status.HTTP_201_CREATED)
+
+		self.client.force_login(self.bob)
+
+		history_response = self.client.get(f'/api/rooms/{room_id}/messages/')
+		self.assertEqual(history_response.status_code, status.HTTP_200_OK)
+		self.assertEqual(len(history_response.data), 1)
+
+		send_response = self.client.post(
+			f'/api/rooms/{room_id}/messages/',
+			{'content': 'hello after ban'},
+			format='json',
+		)
+		self.assertEqual(send_response.status_code, status.HTTP_403_FORBIDDEN)
+		self.assertEqual(
+			send_response.data['detail'],
+			'Direct dialog is read-only because one user banned the other.',
+		)
+
+	def test_personal_messaging_requires_friendship_in_existing_direct_dialog(self):
+		Friendship.objects.create(user1=self.alice, user2=self.bob)
+		self.client.force_login(self.alice)
+
+		create_response = self.client.post(
+			'/api/rooms/dialogs/create-or-get/',
+			{'user_id': self.bob.id},
+			format='json',
+		)
+		self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+		room_id = create_response.data['id']
+
+		remove_friend_response = self.client.delete(f'/api/friends/{self.bob.id}/')
+		self.assertEqual(remove_friend_response.status_code, status.HTTP_204_NO_CONTENT)
+
+		send_response = self.client.post(
+			f'/api/rooms/{room_id}/messages/',
+			{'content': 'hello after unfriend'},
+			format='json',
+		)
+		self.assertEqual(send_response.status_code, status.HTTP_403_FORBIDDEN)
+		self.assertEqual(
+			send_response.data['detail'],
+			'Direct dialog is read-only because users are no longer friends.',
+		)
 
 
 class ModerationApiTests(APITestCase):

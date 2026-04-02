@@ -30,6 +30,7 @@ import {
   getUsersPresence,
   type UserPresenceStatus,
 } from "../lib/api";
+import { sendFriendRequestByUsername } from "../lib/friendsApi";
 
 export default function RoomDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -62,6 +63,9 @@ export default function RoomDetailPage() {
   const [showBannedUsers, setShowBannedUsers] = useState(false);
   const [bansLoading, setBansLoading] = useState(false);
   const [moderationActionLoadingKey, setModerationActionLoadingKey] = useState<
+    string | null
+  >(null);
+  const [friendRequestLoadingKey, setFriendRequestLoadingKey] = useState<
     string | null
   >(null);
   const [presenceByUserId, setPresenceByUserId] = useState<
@@ -541,6 +545,21 @@ export default function RoomDetailPage() {
     }
   };
 
+  const handleSendFriendRequest = async (username: string, userId: number) => {
+    const loadingKey = `request-${userId}`;
+    try {
+      setFriendRequestLoadingKey(loadingKey);
+      setMessagesError(null);
+      await sendFriendRequestByUsername({ username });
+    } catch (err: unknown) {
+      setMessagesError(
+        err instanceof Error ? err.message : "Failed to send friend request",
+      );
+    } finally {
+      setFriendRequestLoadingKey(null);
+    }
+  };
+
   const handleBack = () => navigate("/rooms");
 
   if (loading) {
@@ -621,6 +640,8 @@ export default function RoomDetailPage() {
           onBanMember: handleBanMember,
           onRemoveMember: handleRemoveMember,
           moderationActionLoadingKey,
+          friendRequestLoadingKey,
+          onSendFriendRequest: handleSendFriendRequest,
           presenceByUserId,
           wsStatus,
         }}

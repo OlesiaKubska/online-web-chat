@@ -35,6 +35,8 @@ interface ChatPanelProps {
   onBanMember: (userId: number) => void;
   onRemoveMember: (userId: number) => void;
   moderationActionLoadingKey: string | null;
+  friendRequestLoadingKey: string | null;
+  onSendFriendRequest: (username: string, userId: number) => void;
   presenceByUserId: Record<number, UserPresenceStatus>;
   wsStatus: "connecting" | "connected" | "disconnected";
 }
@@ -63,6 +65,8 @@ export function ChatPanel({
   onBanMember,
   onRemoveMember,
   moderationActionLoadingKey,
+  friendRequestLoadingKey,
+  onSendFriendRequest,
   presenceByUserId,
   wsStatus,
 }: ChatPanelProps) {
@@ -417,6 +421,38 @@ export function ChatPanel({
                             : "Ban member"}
                         </button>
                       </>
+                    )}
+
+                  {!room.is_direct &&
+                    currentUserId !== null &&
+                    currentUserId !== message.user && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onSendFriendRequest(
+                            message.user_username,
+                            message.user,
+                          )
+                        }
+                        disabled={
+                          friendRequestLoadingKey === `request-${message.user}`
+                        }
+                        style={{
+                          ...secondaryButtonStyle,
+                          fontSize: "12px",
+                          padding: "4px 8px",
+                          minWidth: "auto",
+                          opacity:
+                            friendRequestLoadingKey ===
+                            `request-${message.user}`
+                              ? 0.6
+                              : 1,
+                        }}
+                      >
+                        {friendRequestLoadingKey === `request-${message.user}`
+                          ? "Sending request..."
+                          : "Add friend"}
+                      </button>
                     )}
                 </div>
                 {message.reply_to_message && (

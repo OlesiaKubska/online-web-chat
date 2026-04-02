@@ -6,6 +6,7 @@ from django.contrib.auth.models import AnonymousUser
 
 from .models import Room, RoomMembership, Message
 from .serializers import MessageSerializer
+from .services import can_write_in_direct_dialog
 
 
 class RoomChatConsumer(AsyncWebsocketConsumer):
@@ -74,6 +75,14 @@ class RoomChatConsumer(AsyncWebsocketConsumer):
             await self.send_json({
                 "type": "error",
                 "detail": "Room not found.",
+            })
+            return
+
+        can_write, detail = await self.can_write_in_direct_dialog(room, self.user)
+        if not can_write:
+            await self.send_json({
+                "type": "error",
+                "detail": detail,
             })
             return
 
@@ -151,3 +160,7 @@ class RoomChatConsumer(AsyncWebsocketConsumer):
             "reply_to__user",
         ).get(pk=message.pk)
         return MessageSerializer(message).data
+
+    @sync_to_async
+    def can_write_in_direct_dialog(self, room, user):
+        return can_write_in_direct_dialog(user, room)

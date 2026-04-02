@@ -41,6 +41,14 @@ def ensure_room_moderator(room, user):
         raise PermissionDenied('You do not have permission to moderate this room.')
 
 
+def ensure_direct_dialog_writable(room, user):
+    from .services import can_write_in_direct_dialog
+
+    can_write, detail = can_write_in_direct_dialog(user, room)
+    if not can_write:
+        raise PermissionDenied(detail)
+
+
 @method_decorator(csrf_exempt, name='dispatch')
 class RoomCreateView(generics.CreateAPIView):
     serializer_class = CreateRoomSerializer
@@ -264,6 +272,7 @@ class RoomMessageListCreateView(APIView):
     def post(self, request, pk):
         room = self.get_room(pk)
         ensure_room_member(room, request.user)
+        ensure_direct_dialog_writable(room, request.user)
 
         serializer = CreateMessageSerializer(
             data=request.data,
@@ -292,6 +301,8 @@ class MessageDetailView(APIView):
     def patch(self, request, pk):
         message = self.get_message(pk)
 
+        ensure_direct_dialog_writable(message.room, request.user)
+
         if message.user_id != request.user.id:
             raise PermissionDenied('You can edit only your own messages.')
 
@@ -304,6 +315,8 @@ class MessageDetailView(APIView):
 
     def delete(self, request, pk):
         message = self.get_message(pk)
+
+        ensure_direct_dialog_writable(message.room, request.user)
 
         from .services import can_delete_message
         if not can_delete_message(request.user, message):
@@ -553,6 +566,7 @@ class MessageAttachmentUploadView(APIView):
     def post(self, request, message_id):
         message = get_object_or_404(Message, pk=message_id)
         ensure_room_member(message.room, request.user)
+        ensure_direct_dialog_writable(message.room, request.user)
 
         uploaded_file = request.FILES.get("file")
         if not uploaded_file:
