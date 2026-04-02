@@ -32,7 +32,14 @@ import {
   type UserPresenceStatus,
   uploadMessageAttachment,
 } from "../lib/api";
-import { sendFriendRequestByUsername } from "../lib/friendsApi";
+import {
+  getFriends,
+  getIncomingFriendRequests,
+  getOutgoingFriendRequests,
+  sendFriendRequestByUsername,
+} from "../lib/friendsApi";
+
+type FriendRelationStatus = "none" | "friend" | "outgoing" | "incoming";
 
 export default function RoomDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -74,11 +81,19 @@ export default function RoomDetailPage() {
   const [friendRequestLoadingKey, setFriendRequestLoadingKey] = useState<
     string | null
   >(null);
+  const [friendRequestFeedback, setFriendRequestFeedback] = useState<{
+    kind: "success" | "error";
+    text: string;
+  } | null>(null);
+  const [friendRelationByUserId, setFriendRelationByUserId] = useState<
+    Record<number, FriendRelationStatus>
+  >({});
   const [presenceByUserId, setPresenceByUserId] = useState<
     Record<number, UserPresenceStatus>
   >({});
 
   const isMountedRef = useRef(true);
+  const friendRequestFeedbackTimeoutRef = useRef<number | null>(null);
 
   const [roomMembers, setRoomMembers] = useState<RoomMember[]>([]);
   const [showMembers, setShowMembers] = useState(false);
@@ -124,6 +139,53 @@ export default function RoomDetailPage() {
 
     fetchMessages(room.id);
   }, [room?.id, room?.joined]);
+
+  useEffect(() => {
+    if (!room?.joined) {
+      setFriendRelationByUserId({});
+      return;
+    }
+
+    const loadFriendRelations = async () => {
+      try {
+        const [friends, incomingRequests, outgoingRequests] = await Promise.all(
+          [
+            getFriends(),
+            getIncomingFriendRequests(),
+            getOutgoingFriendRequests(),
+          ],
+        );
+
+        const relationMap: Record<number, FriendRelationStatus> = {};
+
+        friends.forEach((friend) => {
+          relationMap[friend.id] = "friend";
+        });
+
+        outgoingRequests
+          .filter((request) => request.status === "pending")
+          .forEach((request) => {
+            if (!relationMap[request.to_user]) {
+              relationMap[request.to_user] = "outgoing";
+            }
+          });
+
+        incomingRequests
+          .filter((request) => request.status === "pending")
+          .forEach((request) => {
+            if (!relationMap[request.from_user]) {
+              relationMap[request.from_user] = "incoming";
+            }
+          });
+
+        setFriendRelationByUserId(relationMap);
+      } catch {
+        setFriendRelationByUserId({});
+      }
+    };
+
+    void loadFriendRelations();
+  }, [room?.joined, room?.id]);
 
   useEffect(() => {
     if (!room?.id || !room.joined) {
@@ -251,8 +313,34 @@ export default function RoomDetailPage() {
   useEffect(() => {
     return () => {
       isMountedRef.current = false;
+      if (friendRequestFeedbackTimeoutRef.current !== null) {
+        window.clearTimeout(friendRequestFeedbackTimeoutRef.current);
+      }
     };
   }, []);
+
+  const showFriendRequestFeedback = (
+    kind: "success" | "error",
+    text: string,
+  ) => {
+    if (friendRequestFeedbackTimeoutRef.current !== null) {
+      window.clearTimeout(friendRequestFeedbackTimeoutRef.current);
+    }
+
+    setFriendRequestFeedback({ kind, text });
+    friendRequestFeedbackTimeoutRef.current = window.setTimeout(() => {
+      setFriendRequestFeedback(null);
+      friendRequestFeedbackTimeoutRef.current = null;
+    }, 4000);
+  };
+
+  const clearFriendRequestFeedback = () => {
+    if (friendRequestFeedbackTimeoutRef.current !== null) {
+      window.clearTimeout(friendRequestFeedbackTimeoutRef.current);
+      friendRequestFeedbackTimeoutRef.current = null;
+    }
+    setFriendRequestFeedback(null);
+  };
 
   const fetchRoom = async (roomId: number, showPageLoader = true) => {
     try {
@@ -641,6 +729,7 @@ export default function RoomDetailPage() {
       setMessageContent("");
       setPendingAttachments([]);
       setReplyTo(null);
+      clearFriendRequestFeedback();
     } catch (err: unknown) {
       setMessagesError(
         err instanceof Error ? err.message : "Failed to send message",
@@ -654,16 +743,77 @@ export default function RoomDetailPage() {
 
   const handleSendFriendRequest = async (username: string, userId: number) => {
     const loadingKey = `request-${userId}`;
+    const relationStatus = friendRelationByUserId[userId] ?? "none";
+
+    if (
+      friendRequestLoadingKey === loadingKey ||
+      relationStatus === "outgoing"
+    ) {
+      showFriendRequestFeedback("error", "Friend request already sent");
+      return;
+    }
+
+    if (relationStatus === "friend") {
+      showFriendRequestFeedback("error", "You are already friends");
+      return;
+    }
+
+    if (relationStatus === "incoming") {
+      showFriendRequestFeedback("error", "You have a pending incoming request");
+      return;
+    }
+
     try {
       setFriendRequestLoadingKey(loadingKey);
-      setMessagesError(null);
+      clearFriendRequestFeedback();
       await sendFriendRequestByUsername({ username });
-    } catch (err: unknown) {
-      setMessagesError(
-        err instanceof Error ? err.message : "Failed to send friend request",
+      setFriendRelationByUserId((prev) => ({ ...prev, [userId]: "outgoing" }));
+      showFriendRequestFeedback(
+        "success",
+        `Friend request sent to ${username}.`,
       );
+    } catch (err: unknown) {
+      const fallback = "Failed to send friend request";
+      let message = err instanceof Error ? err.message : fallback;
+
+      if (err instanceof ApiError && err.status === 400) {
+        message = "Friend request already sent";
+
+        const normalized =
+          err.message?.toLowerCase() ??
+          (err instanceof Error ? err.message.toLowerCase() : "");
+        if (normalized.includes("already")) {
+          setFriendRelationByUserId((prev) => ({
+            ...prev,
+            [userId]: "outgoing",
+          }));
+        }
+      }
+
+      showFriendRequestFeedback("error", message);
     } finally {
       setFriendRequestLoadingKey(null);
+    }
+  };
+
+  const handleMessageChange = (value: string) => {
+    setMessageContent(value);
+    if (friendRequestFeedback) {
+      clearFriendRequestFeedback();
+    }
+  };
+
+  const handleReply = (message: Message) => {
+    setReplyTo(message);
+    if (friendRequestFeedback) {
+      clearFriendRequestFeedback();
+    }
+  };
+
+  const handleCancelReply = () => {
+    setReplyTo(null);
+    if (friendRequestFeedback) {
+      clearFriendRequestFeedback();
     }
   };
 
@@ -734,7 +884,7 @@ export default function RoomDetailPage() {
           messagesLoading,
           messagesError,
           messageContent,
-          onMessageChange: setMessageContent,
+          onMessageChange: handleMessageChange,
           onSendMessage: handleSendMessage,
           pendingAttachments,
           onPendingAttachmentsChange: handlePendingAttachmentsChange,
@@ -742,8 +892,8 @@ export default function RoomDetailPage() {
           uploadingAttachments,
           sendingMessage,
           replyTo,
-          onReply: setReplyTo,
-          onCancelReply: () => setReplyTo(null),
+          onReply: handleReply,
+          onCancelReply: handleCancelReply,
           onLoadOlderMessages: handleLoadOlderMessages,
           loadingOlderMessages,
           hasMoreMessages: messagesHasMore,
@@ -760,6 +910,8 @@ export default function RoomDetailPage() {
           onRemoveMember: handleRemoveMember,
           moderationActionLoadingKey,
           friendRequestLoadingKey,
+          friendRequestFeedback,
+          friendRelationByUserId,
           onSendFriendRequest: handleSendFriendRequest,
           presenceByUserId,
           wsStatus,

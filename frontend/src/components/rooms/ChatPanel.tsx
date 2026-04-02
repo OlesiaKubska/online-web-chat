@@ -11,6 +11,8 @@ import { Panel } from "./Panel";
 import { MetaPill } from "./MetaPill";
 import { PresenceBadge } from "./PresenceBadge";
 
+type FriendRelationStatus = "none" | "friend" | "outgoing" | "incoming";
+
 interface ChatPanelProps {
   room: Room;
   messages: Message[];
@@ -43,6 +45,11 @@ interface ChatPanelProps {
   onRemoveMember: (userId: number) => void;
   moderationActionLoadingKey: string | null;
   friendRequestLoadingKey: string | null;
+  friendRequestFeedback: {
+    kind: "success" | "error";
+    text: string;
+  } | null;
+  friendRelationByUserId: Record<number, FriendRelationStatus>;
   onSendFriendRequest: (username: string, userId: number) => void;
   presenceByUserId: Record<number, UserPresenceStatus>;
   wsStatus: "connecting" | "connected" | "disconnected";
@@ -80,6 +87,8 @@ export function ChatPanel({
   onRemoveMember,
   moderationActionLoadingKey,
   friendRequestLoadingKey,
+  friendRequestFeedback,
+  friendRelationByUserId,
   onSendFriendRequest,
   presenceByUserId,
   wsStatus,
@@ -200,6 +209,30 @@ export function ChatPanel({
           gap: "16px",
         }}
       >
+        {friendRequestFeedback && (
+          <div
+            style={{
+              padding: "10px 12px",
+              borderRadius: "10px",
+              border: `1px solid ${
+                friendRequestFeedback.kind === "error"
+                  ? palette.danger
+                  : palette.secondary
+              }`,
+              backgroundColor:
+                friendRequestFeedback.kind === "error"
+                  ? "rgba(220, 53, 69, 0.1)"
+                  : "rgba(34, 199, 169, 0.1)",
+              color:
+                friendRequestFeedback.kind === "error"
+                  ? palette.danger
+                  : palette.textSoft,
+              fontSize: "14px",
+            }}
+          >
+            {friendRequestFeedback.text}
+          </div>
+        )}
         {replyTo && (
           <div
             style={{
@@ -348,170 +381,193 @@ export function ChatPanel({
                     marginBottom: "8px",
                   }}
                 >
-                  <button
-                    type="button"
-                    onClick={() => onReply(message)}
-                    disabled={!room.joined}
-                    style={{
-                      ...secondaryButtonStyle,
-                      fontSize: "12px",
-                      padding: "4px 8px",
-                      minWidth: "auto",
-                      opacity: !room.joined ? 0.6 : 1,
-                      cursor: !room.joined ? "not-allowed" : "pointer",
-                    }}
-                  >
-                    Reply
-                  </button>
-                  {currentUserId === message.user && (
-                    <button
-                      type="button"
-                      onClick={() => onStartEdit(message)}
-                      disabled={
-                        editingMessageId !== null &&
-                        editingMessageId !== message.id
-                      }
-                      style={{
-                        ...secondaryButtonStyle,
-                        fontSize: "12px",
-                        padding: "4px 8px",
-                        minWidth: "auto",
-                        opacity:
-                          editingMessageId !== null &&
-                          editingMessageId !== message.id
-                            ? 0.6
-                            : 1,
-                        cursor:
-                          editingMessageId !== null &&
-                          editingMessageId !== message.id
-                            ? "not-allowed"
-                            : "pointer",
-                      }}
-                    >
-                      Edit
-                    </button>
-                  )}
-                  {(currentUserId === message.user || canModerateRoom) && (
-                    <button
-                      type="button"
-                      onClick={() => onDeleteMessage(message.id)}
-                      disabled={
-                        editingMessageId !== null &&
-                        editingMessageId !== message.id
-                      }
-                      style={{
-                        ...secondaryButtonStyle,
-                        fontSize: "12px",
-                        padding: "4px 8px",
-                        minWidth: "auto",
-                        opacity:
-                          editingMessageId !== null &&
-                          editingMessageId !== message.id
-                            ? 0.6
-                            : 1,
-                        cursor:
-                          editingMessageId !== null &&
-                          editingMessageId !== message.id
-                            ? "not-allowed"
-                            : "pointer",
-                        backgroundColor: "rgba(220, 53, 69, 0.1)",
-                        borderColor: palette.danger,
-                        color: palette.danger,
-                      }}
-                    >
-                      {currentUserId === message.user ? "Delete" : "Mod delete"}
-                    </button>
-                  )}
+                  {(() => {
+                    const relationStatus =
+                      friendRelationByUserId[message.user] ?? "none";
+                    const isRequestLoading =
+                      friendRequestLoadingKey === `request-${message.user}`;
+                    const isActionDisabled =
+                      isRequestLoading ||
+                      relationStatus === "friend" ||
+                      relationStatus === "outgoing" ||
+                      relationStatus === "incoming";
 
-                  {canModerateRoom &&
-                    currentUserId !== null &&
-                    currentUserId !== message.user &&
-                    !room.is_direct && (
+                    const friendActionLabel = isRequestLoading
+                      ? "Sending request..."
+                      : relationStatus === "friend"
+                        ? "Friend"
+                        : relationStatus === "outgoing"
+                          ? "Request sent"
+                          : relationStatus === "incoming"
+                            ? "Respond"
+                            : "Add friend";
+
+                    return (
                       <>
                         <button
                           type="button"
-                          onClick={() => onRemoveMember(message.user)}
-                          disabled={
-                            moderationActionLoadingKey ===
-                            `remove-${message.user}`
-                          }
+                          onClick={() => onReply(message)}
+                          disabled={!room.joined}
                           style={{
                             ...secondaryButtonStyle,
                             fontSize: "12px",
                             padding: "4px 8px",
                             minWidth: "auto",
-                            opacity:
-                              moderationActionLoadingKey ===
-                              `remove-${message.user}`
-                                ? 0.6
-                                : 1,
+                            opacity: !room.joined ? 0.6 : 1,
+                            cursor: !room.joined ? "not-allowed" : "pointer",
                           }}
                         >
-                          {moderationActionLoadingKey ===
-                          `remove-${message.user}`
-                            ? "Removing & banning..."
-                            : "Remove & ban"}
+                          Reply
                         </button>
+                        {currentUserId === message.user && (
+                          <button
+                            type="button"
+                            onClick={() => onStartEdit(message)}
+                            disabled={
+                              editingMessageId !== null &&
+                              editingMessageId !== message.id
+                            }
+                            style={{
+                              ...secondaryButtonStyle,
+                              fontSize: "12px",
+                              padding: "4px 8px",
+                              minWidth: "auto",
+                              opacity:
+                                editingMessageId !== null &&
+                                editingMessageId !== message.id
+                                  ? 0.6
+                                  : 1,
+                              cursor:
+                                editingMessageId !== null &&
+                                editingMessageId !== message.id
+                                  ? "not-allowed"
+                                  : "pointer",
+                            }}
+                          >
+                            Edit
+                          </button>
+                        )}
+                        {(currentUserId === message.user ||
+                          canModerateRoom) && (
+                          <button
+                            type="button"
+                            onClick={() => onDeleteMessage(message.id)}
+                            disabled={
+                              editingMessageId !== null &&
+                              editingMessageId !== message.id
+                            }
+                            style={{
+                              ...secondaryButtonStyle,
+                              fontSize: "12px",
+                              padding: "4px 8px",
+                              minWidth: "auto",
+                              opacity:
+                                editingMessageId !== null &&
+                                editingMessageId !== message.id
+                                  ? 0.6
+                                  : 1,
+                              cursor:
+                                editingMessageId !== null &&
+                                editingMessageId !== message.id
+                                  ? "not-allowed"
+                                  : "pointer",
+                              backgroundColor: "rgba(220, 53, 69, 0.1)",
+                              borderColor: palette.danger,
+                              color: palette.danger,
+                            }}
+                          >
+                            {currentUserId === message.user
+                              ? "Delete"
+                              : "Mod delete"}
+                          </button>
+                        )}
 
-                        <button
-                          type="button"
-                          onClick={() => onBanMember(message.user)}
-                          disabled={
-                            moderationActionLoadingKey === `ban-${message.user}`
-                          }
-                          style={{
-                            ...secondaryButtonStyle,
-                            fontSize: "12px",
-                            padding: "4px 8px",
-                            minWidth: "auto",
-                            opacity:
-                              moderationActionLoadingKey ===
-                              `ban-${message.user}`
-                                ? 0.6
-                                : 1,
-                            backgroundColor: "rgba(220, 53, 69, 0.1)",
-                            borderColor: palette.danger,
-                            color: palette.danger,
-                          }}
-                        >
-                          {moderationActionLoadingKey === `ban-${message.user}`
-                            ? "Banning..."
-                            : "Ban member"}
-                        </button>
+                        {canModerateRoom &&
+                          currentUserId !== null &&
+                          currentUserId !== message.user &&
+                          !room.is_direct && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => onRemoveMember(message.user)}
+                                disabled={
+                                  moderationActionLoadingKey ===
+                                  `remove-${message.user}`
+                                }
+                                style={{
+                                  ...secondaryButtonStyle,
+                                  fontSize: "12px",
+                                  padding: "4px 8px",
+                                  minWidth: "auto",
+                                  opacity:
+                                    moderationActionLoadingKey ===
+                                    `remove-${message.user}`
+                                      ? 0.6
+                                      : 1,
+                                }}
+                              >
+                                {moderationActionLoadingKey ===
+                                `remove-${message.user}`
+                                  ? "Removing & banning..."
+                                  : "Remove & ban"}
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => onBanMember(message.user)}
+                                disabled={
+                                  moderationActionLoadingKey ===
+                                  `ban-${message.user}`
+                                }
+                                style={{
+                                  ...secondaryButtonStyle,
+                                  fontSize: "12px",
+                                  padding: "4px 8px",
+                                  minWidth: "auto",
+                                  opacity:
+                                    moderationActionLoadingKey ===
+                                    `ban-${message.user}`
+                                      ? 0.6
+                                      : 1,
+                                  backgroundColor: "rgba(220, 53, 69, 0.1)",
+                                  borderColor: palette.danger,
+                                  color: palette.danger,
+                                }}
+                              >
+                                {moderationActionLoadingKey ===
+                                `ban-${message.user}`
+                                  ? "Banning..."
+                                  : "Ban member"}
+                              </button>
+                            </>
+                          )}
+
+                        {!room.is_direct &&
+                          currentUserId !== null &&
+                          currentUserId !== message.user && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                onSendFriendRequest(
+                                  message.user_username,
+                                  message.user,
+                                )
+                              }
+                              disabled={isActionDisabled}
+                              style={{
+                                ...secondaryButtonStyle,
+                                fontSize: "12px",
+                                padding: "4px 8px",
+                                minWidth: "auto",
+                                opacity: isActionDisabled ? 0.6 : 1,
+                              }}
+                            >
+                              {friendActionLabel}
+                            </button>
+                          )}
                       </>
-                    )}
-
-                  {!room.is_direct &&
-                    currentUserId !== null &&
-                    currentUserId !== message.user && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          onSendFriendRequest(
-                            message.user_username,
-                            message.user,
-                          )
-                        }
-                        disabled={
-                          friendRequestLoadingKey === `request-${message.user}`
-                        }
-                        style={{
-                          ...secondaryButtonStyle,
-                          fontSize: "12px",
-                          padding: "4px 8px",
-                          minWidth: "auto",
-                          opacity:
-                            friendRequestLoadingKey ===
-                            `request-${message.user}`
-                              ? 0.6
-                              : 1,
-                        }}
-                      >
-                        {friendRequestLoadingKey === `request-${message.user}`
-                          ? "Sending request..."
-                          : "Add friend"}
-                      </button>
-                    )}
+                    );
+                  })()}
                 </div>
                 {message.reply_to_message && (
                   <div
