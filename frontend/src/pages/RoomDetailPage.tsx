@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type ClipboardEvent } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   getRoomById,
@@ -58,6 +58,7 @@ export default function RoomDetailPage() {
 
   const [messageContent, setMessageContent] = useState("");
   const [pendingAttachments, setPendingAttachments] = useState<File[]>([]);
+  const [attachmentComment, setAttachmentComment] = useState("");
   const [uploadingAttachments, setUploadingAttachments] = useState(false);
   const [sendingMessage, setSendingMessage] = useState(false);
   const [replyTo, setReplyTo] = useState<Message | null>(null);
@@ -677,6 +678,16 @@ export default function RoomDetailPage() {
     setPendingAttachments(Array.from(files));
   };
 
+  const handleComposerPaste = (event: ClipboardEvent<HTMLTextAreaElement>) => {
+    const clipboardFiles = Array.from(event.clipboardData.files || []);
+    if (clipboardFiles.length === 0) {
+      return;
+    }
+
+    event.preventDefault();
+    setPendingAttachments((prev) => [...prev, ...clipboardFiles]);
+  };
+
   const handleRemovePendingAttachment = (index: number) => {
     setPendingAttachments((prev) => prev.filter((_, i) => i !== index));
   };
@@ -712,9 +723,10 @@ export default function RoomDetailPage() {
         let nextMessage = newMessage;
         if (pendingAttachments.length > 0) {
           setUploadingAttachments(true);
+          const comment = attachmentComment.trim();
           const uploaded = await Promise.all(
             pendingAttachments.map((file) =>
-              uploadMessageAttachment(newMessage.id, file),
+              uploadMessageAttachment(newMessage.id, file, comment),
             ),
           );
           nextMessage = {
@@ -728,6 +740,7 @@ export default function RoomDetailPage() {
 
       setMessageContent("");
       setPendingAttachments([]);
+      setAttachmentComment("");
       setReplyTo(null);
       clearFriendRequestFeedback();
     } catch (err: unknown) {
@@ -736,8 +749,7 @@ export default function RoomDetailPage() {
       );
     } finally {
       setSendingMessage(false);
-      setUploadingAttachments;
-      setSendingMessage(false);
+      setUploadingAttachments(false);
     }
   };
 
@@ -888,6 +900,9 @@ export default function RoomDetailPage() {
           onSendMessage: handleSendMessage,
           pendingAttachments,
           onPendingAttachmentsChange: handlePendingAttachmentsChange,
+          attachmentComment,
+          onAttachmentCommentChange: setAttachmentComment,
+          onComposerPaste: handleComposerPaste,
           onRemovePendingAttachment: handleRemovePendingAttachment,
           uploadingAttachments,
           sendingMessage,

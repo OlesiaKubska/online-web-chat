@@ -1,4 +1,4 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, type ClipboardEvent } from "react";
 import type { UserPresenceStatus } from "../../lib/api";
 import type { Room } from "../../types/room";
 import type { Message } from "../../types/message";
@@ -23,6 +23,9 @@ interface ChatPanelProps {
   onSendMessage: () => void;
   pendingAttachments: File[];
   onPendingAttachmentsChange: (files: FileList | null) => void;
+  attachmentComment: string;
+  onAttachmentCommentChange: (value: string) => void;
+  onComposerPaste: (event: ClipboardEvent<HTMLTextAreaElement>) => void;
   onRemovePendingAttachment: (index: number) => void;
   uploadingAttachments: boolean;
   sendingMessage: boolean;
@@ -65,6 +68,9 @@ export function ChatPanel({
   onSendMessage,
   pendingAttachments,
   onPendingAttachmentsChange,
+  attachmentComment,
+  onAttachmentCommentChange,
+  onComposerPaste,
   onRemovePendingAttachment,
   uploadingAttachments,
   sendingMessage,
@@ -839,23 +845,40 @@ export function ChatPanel({
         </div>
 
         {pendingAttachments.length > 0 && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-            {pendingAttachments.map((file, index) => (
-              <button
-                key={`${file.name}-${index}`}
-                type="button"
-                onClick={() => onRemovePendingAttachment(index)}
-                disabled={sendingMessage || uploadingAttachments}
-                style={{
-                  ...secondaryButtonStyle,
-                  minWidth: "auto",
-                  padding: "6px 10px",
-                  fontSize: "12px",
-                }}
-              >
-                Remove {file.name}
-              </button>
-            ))}
+          <div style={{ display: "grid", gap: "10px" }}>
+            <input
+              type="text"
+              value={attachmentComment}
+              onChange={(event) =>
+                onAttachmentCommentChange(event.target.value)
+              }
+              placeholder="Optional attachment comment"
+              disabled={sendingMessage || uploadingAttachments}
+              style={{
+                ...inputStyle,
+                fontSize: "13px",
+                minHeight: "40px",
+                padding: "8px 10px",
+              }}
+            />
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+              {pendingAttachments.map((file, index) => (
+                <button
+                  key={`${file.name}-${index}`}
+                  type="button"
+                  onClick={() => onRemovePendingAttachment(index)}
+                  disabled={sendingMessage || uploadingAttachments}
+                  style={{
+                    ...secondaryButtonStyle,
+                    minWidth: "auto",
+                    padding: "6px 10px",
+                    fontSize: "12px",
+                  }}
+                >
+                  Remove {file.name}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
@@ -870,6 +893,7 @@ export function ChatPanel({
             placeholder="Type a message..."
             value={messageContent}
             onChange={(e) => onMessageChange(e.target.value)}
+            onPaste={onComposerPaste}
             onKeyDown={(e) => {
               if (
                 e.key === "Enter" &&
