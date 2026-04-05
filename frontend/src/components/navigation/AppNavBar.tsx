@@ -41,7 +41,17 @@ export function AppNavBar({ mode }: AppNavBarProps) {
   const handleLogout = async () => {
     try {
       setLoggingOut(true);
-      await apiRequest<unknown>("/auth/logout/", { method: "POST" });
+
+      const sessionId = window.localStorage.getItem("presence_session_id");
+      const tabId = window.sessionStorage.getItem("presence_tab_id");
+
+      await apiRequest<unknown>("/auth/logout/", {
+        method: "POST",
+        body: JSON.stringify({
+          session_id: sessionId ?? undefined,
+          tab_id: tabId ?? undefined,
+        }),
+      });
     } catch {
       // Ignore errors and continue to login to clear local route state.
     } finally {

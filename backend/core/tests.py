@@ -140,3 +140,32 @@ class PresenceApiLatencyTests(APITestCase):
         users_online = self.client.get(f'/api/presence/users/?ids={self.alice.id}')
         self.assertEqual(users_online.status_code, status.HTTP_200_OK)
         self.assertEqual(users_online.data[0]['status'], 'online')
+
+    def test_logout_clears_current_tab_presence_when_ids_are_provided(self):
+        heartbeat = self.client.post(
+            '/api/presence/heartbeat/',
+            {'session_id': 'logout-session', 'tab_id': 'logout-tab', 'status': 'online'},
+            format='json',
+        )
+        self.assertEqual(heartbeat.status_code, status.HTTP_200_OK)
+        self.assertTrue(
+            UserPresence.objects.filter(
+                user=self.alice,
+                session_id='logout-session',
+                tab_id='logout-tab',
+            ).exists()
+        )
+
+        logout_response = self.client.post(
+            '/api/auth/logout/',
+            {'session_id': 'logout-session', 'tab_id': 'logout-tab'},
+            format='json',
+        )
+        self.assertEqual(logout_response.status_code, status.HTTP_200_OK)
+        self.assertFalse(
+            UserPresence.objects.filter(
+                user=self.alice,
+                session_id='logout-session',
+                tab_id='logout-tab',
+            ).exists()
+        )

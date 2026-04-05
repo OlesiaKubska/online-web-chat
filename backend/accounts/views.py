@@ -12,6 +12,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from core.authentication import CsrfExemptSessionAuthentication
+from core.services import close_presence_tab
 
 from .login_serializers import LoginSerializer
 from .models import UserSessionMeta
@@ -135,8 +136,19 @@ class LogoutView(APIView):
 
     def post(self, request):
         session_key = request.session.session_key
+        session_id = request.data.get('session_id') if hasattr(request, 'data') else None
+        tab_id = request.data.get('tab_id') if hasattr(request, 'data') else None
+
         if session_key:
             UserSessionMeta.objects.filter(session_key=session_key).delete()
+
+        if getattr(request.user, 'is_authenticated', False) and session_id and tab_id:
+            close_presence_tab(
+                request.user,
+                str(session_id),
+                str(tab_id),
+            )
+
         logout(request)
         return Response({'message': 'Logout successful'}, status=status.HTTP_200_OK)
 
