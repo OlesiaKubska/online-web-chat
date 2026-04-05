@@ -37,6 +37,19 @@ export function ChatPanelHeader({
         >
           {messagesCount} {messagesCount === 1 ? "message" : "messages"}
         </p>
+        {room.joined &&
+        !room.can_send_messages &&
+        room.write_restriction_reason ? (
+          <p
+            style={{
+              margin: "6px 0 0",
+              color: palette.danger,
+              fontSize: "13px",
+            }}
+          >
+            {room.write_restriction_reason}
+          </p>
+        ) : null}
       </div>
 
       <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
@@ -56,8 +69,20 @@ export function ChatPanelHeader({
               : "Offline"}
         </MetaPill>
 
-        <MetaPill tone={room.joined ? "success" : "default"}>
-          {room.joined ? "Ready to chat" : "Join to participate"}
+        <MetaPill
+          tone={
+            room.joined
+              ? room.can_send_messages
+                ? "success"
+                : "danger"
+              : "default"
+          }
+        >
+          {room.joined
+            ? room.can_send_messages
+              ? "Ready to chat"
+              : "Read-only"
+            : "Join to participate"}
         </MetaPill>
       </div>
     </div>

@@ -58,6 +58,7 @@ export function MessageActions({
     currentUserId !== null &&
     currentUserId !== message.user &&
     !room.is_direct;
+  const isReadOnly = room.joined && !room.can_send_messages;
 
   const friendActionLabel = isRequestLoading
     ? "Sending request..."
@@ -105,14 +106,14 @@ export function MessageActions({
       <button
         type="button"
         onClick={() => onReply(message)}
-        disabled={!room.joined}
+        disabled={!room.joined || isReadOnly}
         style={{
           ...secondaryButtonStyle,
           fontSize: "12px",
           padding: "4px 8px",
           minWidth: "auto",
-          opacity: !room.joined ? 0.6 : 1,
-          cursor: !room.joined ? "not-allowed" : "pointer",
+          opacity: !room.joined || isReadOnly ? 0.6 : 1,
+          cursor: !room.joined || isReadOnly ? "not-allowed" : "pointer",
         }}
       >
         Reply
@@ -122,7 +123,8 @@ export function MessageActions({
           type="button"
           onClick={() => onStartEdit(message)}
           disabled={
-            editingMessageId !== null && editingMessageId !== message.id
+            isReadOnly ||
+            (editingMessageId !== null && editingMessageId !== message.id)
           }
           style={{
             ...secondaryButtonStyle,
@@ -130,11 +132,13 @@ export function MessageActions({
             padding: "4px 8px",
             minWidth: "auto",
             opacity:
-              editingMessageId !== null && editingMessageId !== message.id
+              isReadOnly ||
+              (editingMessageId !== null && editingMessageId !== message.id)
                 ? 0.6
                 : 1,
             cursor:
-              editingMessageId !== null && editingMessageId !== message.id
+              isReadOnly ||
+              (editingMessageId !== null && editingMessageId !== message.id)
                 ? "not-allowed"
                 : "pointer",
           }}
@@ -148,7 +152,8 @@ export function MessageActions({
             type="button"
             onClick={() => setPendingAction("delete-message")}
             disabled={
-              editingMessageId !== null && editingMessageId !== message.id
+              isReadOnly ||
+              (editingMessageId !== null && editingMessageId !== message.id)
             }
             style={{
               ...secondaryButtonStyle,
@@ -156,11 +161,13 @@ export function MessageActions({
               padding: "4px 8px",
               minWidth: "auto",
               opacity:
-                editingMessageId !== null && editingMessageId !== message.id
+                isReadOnly ||
+                (editingMessageId !== null && editingMessageId !== message.id)
                   ? 0.6
                   : 1,
               cursor:
-                editingMessageId !== null && editingMessageId !== message.id
+                isReadOnly ||
+                (editingMessageId !== null && editingMessageId !== message.id)
                   ? "not-allowed"
                   : "pointer",
               backgroundColor: "rgba(220, 53, 69, 0.1)",

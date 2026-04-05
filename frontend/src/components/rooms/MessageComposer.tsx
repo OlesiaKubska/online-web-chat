@@ -1,7 +1,11 @@
 import { useRef, type ClipboardEvent } from "react";
 
 import type { Room } from "../../types/room";
-import { inputStyle, secondaryButtonStyle } from "../../styles/roomsTheme";
+import {
+  inputStyle,
+  palette,
+  secondaryButtonStyle,
+} from "../../styles/roomsTheme";
 
 interface MessageComposerProps {
   room: Room;
@@ -33,10 +37,13 @@ export function MessageComposer({
   sendingMessage,
 }: MessageComposerProps) {
   const attachmentInputRef = useRef<HTMLInputElement | null>(null);
-  const canSend =
+  const canInteract =
     room.joined &&
+    room.can_send_messages &&
     !sendingMessage &&
-    !uploadingAttachments &&
+    !uploadingAttachments;
+  const canSend =
+    canInteract &&
     (messageContent.trim().length > 0 || pendingAttachments.length > 0);
 
   return (
@@ -48,6 +55,20 @@ export function MessageComposer({
         fontSize: "14px",
       }}
     >
+      {room.joined &&
+      !room.can_send_messages &&
+      room.write_restriction_reason ? (
+        <div
+          style={{
+            color: palette.danger,
+            fontSize: "13px",
+            lineHeight: 1.5,
+          }}
+        >
+          {room.write_restriction_reason}
+        </div>
+      ) : null}
+
       <div
         style={{
           display: "flex",
@@ -61,22 +82,40 @@ export function MessageComposer({
           type="file"
           multiple
           onChange={(event) => onPendingAttachmentsChange(event.target.files)}
-          disabled={!room.joined || sendingMessage || uploadingAttachments}
+          disabled={
+            !room.joined ||
+            !room.can_send_messages ||
+            sendingMessage ||
+            uploadingAttachments
+          }
           style={{ display: "none" }}
         />
         <button
           type="button"
           onClick={() => attachmentInputRef.current?.click()}
-          disabled={!room.joined || sendingMessage || uploadingAttachments}
+          disabled={
+            !room.joined ||
+            !room.can_send_messages ||
+            sendingMessage ||
+            uploadingAttachments
+          }
           style={{
             ...secondaryButtonStyle,
             minWidth: "auto",
             padding: "6px 10px",
             fontSize: "13px",
             opacity:
-              !room.joined || sendingMessage || uploadingAttachments ? 0.6 : 1,
+              !room.joined ||
+              !room.can_send_messages ||
+              sendingMessage ||
+              uploadingAttachments
+                ? 0.6
+                : 1,
             cursor:
-              !room.joined || sendingMessage || uploadingAttachments
+              !room.joined ||
+              !room.can_send_messages ||
+              sendingMessage ||
+              uploadingAttachments
                 ? "not-allowed"
                 : "pointer",
           }}
@@ -110,7 +149,9 @@ export function MessageComposer({
             value={attachmentComment}
             onChange={(event) => onAttachmentCommentChange(event.target.value)}
             placeholder="Optional attachment comment"
-            disabled={sendingMessage || uploadingAttachments}
+            disabled={
+              !room.can_send_messages || sendingMessage || uploadingAttachments
+            }
             style={{
               ...inputStyle,
               fontSize: "13px",
@@ -157,7 +198,12 @@ export function MessageComposer({
               onSendMessage();
             }
           }}
-          disabled={!room.joined || sendingMessage || uploadingAttachments}
+          disabled={
+            !room.joined ||
+            !room.can_send_messages ||
+            sendingMessage ||
+            uploadingAttachments
+          }
           style={{
             ...inputStyle,
             minHeight: "56px",

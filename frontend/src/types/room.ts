@@ -9,6 +9,8 @@ export interface Room {
   joined: boolean
   my_role: 'owner' | 'admin' | 'member' | null
   unread_count: number
+  can_send_messages: boolean
+  write_restriction_reason: string | null
   created_at: string
   is_direct: boolean
   dm_user1: number | null

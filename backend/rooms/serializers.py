@@ -2,6 +2,7 @@ from django.db import transaction
 from django.urls import reverse
 from rest_framework import serializers
 from .models import Room, RoomMembership, Message, RoomBan, MessageAttachment
+from .services import can_write_in_direct_dialog
 
 
 MAX_MESSAGE_SIZE_BYTES = 3 * 1024
@@ -30,6 +31,8 @@ class RoomSerializer(serializers.ModelSerializer):
     joined = serializers.SerializerMethodField()
     my_role = serializers.SerializerMethodField()
     unread_count = serializers.SerializerMethodField()
+    can_send_messages = serializers.SerializerMethodField()
+    write_restriction_reason = serializers.SerializerMethodField()
     is_direct = serializers.BooleanField(read_only=True)
     dm_user1 = serializers.IntegerField(source='dm_user1_id', read_only=True)
     dm_user2 = serializers.IntegerField(source='dm_user2_id', read_only=True)
@@ -54,6 +57,8 @@ class RoomSerializer(serializers.ModelSerializer):
             'joined',
             'my_role',
             'unread_count',
+            'can_send_messages',
+            'write_restriction_reason',
             'created_at',
         ]
         read_only_fields = ['id', 'owner', 'created_at']
@@ -91,6 +96,34 @@ class RoomSerializer(serializers.ModelSerializer):
             unread_messages = unread_messages.filter(created_at__gt=membership.last_read_at)
 
         return unread_messages.count()
+
+    def get_can_send_messages(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return False
+
+        if not obj.memberships.filter(user=request.user).exists():
+            return False
+
+        if not obj.is_direct:
+            return True
+
+        can_write, _ = can_write_in_direct_dialog(request.user, obj)
+        return can_write
+
+    def get_write_restriction_reason(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return None
+
+        if not obj.memberships.filter(user=request.user).exists():
+            return None
+
+        if not obj.is_direct:
+            return None
+
+        can_write, detail = can_write_in_direct_dialog(request.user, obj)
+        return None if can_write else detail
 
 
 class CreateRoomSerializer(serializers.ModelSerializer):

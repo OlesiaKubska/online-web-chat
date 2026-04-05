@@ -169,6 +169,41 @@ class DirectDialogApiTests(APITestCase):
             'Direct dialog is read-only because one user banned the other.',
         )
 
+    def test_banned_users_cannot_edit_or_delete_existing_direct_messages(self):
+        Friendship.objects.create(user1=self.alice, user2=self.bob)
+        self.client.force_login(self.alice)
+
+        create_response = self.client.post(
+            '/api/rooms/dialogs/create-or-get/',
+            {'user_id': self.bob.id},
+            format='json',
+        )
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        room_id = create_response.data['id']
+
+        message = Message.objects.create(
+            room_id=room_id,
+            user=self.bob,
+            content='before ban',
+        )
+
+        ban_response = self.client.post(f'/api/friends/ban/{self.bob.id}/')
+        self.assertEqual(ban_response.status_code, status.HTTP_201_CREATED)
+
+        self.client.force_login(self.bob)
+
+        edit_response = self.client.patch(
+            f'/api/rooms/messages/{message.id}/',
+            {'content': 'after ban'},
+            format='json',
+        )
+        delete_response = self.client.delete(f'/api/rooms/messages/{message.id}/')
+
+        self.assertEqual(edit_response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(edit_response.data['detail'], 'Direct dialog is read-only because one user banned the other.')
+        self.assertEqual(delete_response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(delete_response.data['detail'], 'Direct dialog is read-only because one user banned the other.')
+
     def test_personal_messaging_requires_friendship_in_existing_direct_dialog(self):
         Friendship.objects.create(user1=self.alice, user2=self.bob)
         self.client.force_login(self.alice)
