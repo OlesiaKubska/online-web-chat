@@ -102,6 +102,7 @@ export default function RoomDetailPage() {
           onInviteUser: moderation.handleInviteUser,
           actionLoading: roomState.actionLoading,
           moderationActionLoadingKey: moderation.moderationActionLoadingKey,
+          currentUserId: roomState.currentUserId,
           isModerator,
           isOwner,
           showBannedUsers: moderation.showBannedUsers,

@@ -22,6 +22,7 @@ interface RoomSidebarProps {
   onInviteUser: () => void;
   actionLoading: boolean;
   moderationActionLoadingKey: string | null;
+  currentUserId: number | null;
   isModerator: boolean;
   isOwner: boolean;
   showBannedUsers: boolean;
@@ -50,6 +51,7 @@ export function RoomSidebar({
   onInviteUser,
   actionLoading,
   moderationActionLoadingKey,
+  currentUserId,
   isModerator,
   isOwner,
   showBannedUsers,
@@ -342,7 +344,10 @@ export function RoomSidebar({
                 const loading =
                   moderationActionLoadingKey === `role-${member.user_id}`;
                 const canPromote = isOwner && member.role === "member";
-                const canDemote = member.role === "admin";
+                const canDemote =
+                  isModerator &&
+                  member.role === "admin" &&
+                  member.user_id !== currentUserId;
 
                 return (
                   <div
