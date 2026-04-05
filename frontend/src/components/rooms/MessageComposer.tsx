@@ -33,6 +33,11 @@ export function MessageComposer({
   sendingMessage,
 }: MessageComposerProps) {
   const attachmentInputRef = useRef<HTMLInputElement | null>(null);
+  const canSend =
+    room.joined &&
+    !sendingMessage &&
+    !uploadingAttachments &&
+    (messageContent.trim().length > 0 || pendingAttachments.length > 0);
 
   return (
     <div
@@ -147,13 +152,7 @@ export function MessageComposer({
           onChange={(event) => onMessageChange(event.target.value)}
           onPaste={onComposerPaste}
           onKeyDown={(event) => {
-            if (
-              event.key === "Enter" &&
-              !event.shiftKey &&
-              !sendingMessage &&
-              !uploadingAttachments &&
-              messageContent.trim()
-            ) {
+            if (event.key === "Enter" && !event.shiftKey && canSend) {
               event.preventDefault();
               onSendMessage();
             }
@@ -168,29 +167,12 @@ export function MessageComposer({
         <button
           type="button"
           onClick={onSendMessage}
-          disabled={
-            !room.joined ||
-            !messageContent.trim() ||
-            sendingMessage ||
-            uploadingAttachments
-          }
+          disabled={!canSend}
           style={{
             ...secondaryButtonStyle,
             minWidth: "120px",
-            opacity:
-              !room.joined ||
-              !messageContent.trim() ||
-              sendingMessage ||
-              uploadingAttachments
-                ? 0.6
-                : 1,
-            cursor:
-              !room.joined ||
-              !messageContent.trim() ||
-              sendingMessage ||
-              uploadingAttachments
-                ? "not-allowed"
-                : "pointer",
+            opacity: canSend ? 1 : 0.6,
+            cursor: canSend ? "pointer" : "not-allowed",
           }}
         >
           {sendingMessage

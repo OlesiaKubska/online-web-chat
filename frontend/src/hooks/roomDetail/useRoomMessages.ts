@@ -209,34 +209,37 @@ export function useRoomMessages({
     if (!room) return;
 
     const trimmedContent = messageContent.trim();
-    if (!trimmedContent) return;
+    const comment = attachmentComment.trim();
+    const hasAttachments = pendingAttachments.length > 0;
+    const contentToSend =
+      trimmedContent ||
+      (hasAttachments ? comment || "Shared an attachment" : "");
+
+    if (!contentToSend) return;
 
     try {
       setSendingMessage(true);
       setMessagesError(null);
       const shouldUseRest =
-        pendingAttachments.length > 0 ||
-        !ws ||
-        ws.readyState !== WebSocket.OPEN;
+        hasAttachments || !ws || ws.readyState !== WebSocket.OPEN;
 
       if (!shouldUseRest && ws) {
         ws.send(
           JSON.stringify({
             action: "send_message",
-            content: trimmedContent,
+            content: contentToSend,
             reply_to: replyTo?.id ?? undefined,
           }),
         );
       } else {
         const newMessage = await sendMessage(room.id, {
-          content: trimmedContent,
+          content: contentToSend,
           reply_to: replyTo?.id ?? undefined,
         });
 
         let nextMessage = newMessage;
-        if (pendingAttachments.length > 0) {
+        if (hasAttachments) {
           setUploadingAttachments(true);
-          const comment = attachmentComment.trim();
           const uploaded = await Promise.all(
             pendingAttachments.map((file) =>
               uploadMessageAttachment(newMessage.id, file, comment),
