@@ -63,6 +63,9 @@ export function AppNavBar({ mode }: AppNavBarProps) {
         gap: "8px",
         flexWrap: "wrap",
         alignItems: "center",
+        position: "sticky",
+        top: "12px",
+        zIndex: 10,
       }}
     >
       {links.map((link) => {

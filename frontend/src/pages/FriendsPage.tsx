@@ -32,6 +32,7 @@ import { IncomingRequestsSection } from "../components/friends/IncomingRequestsS
 import { OutgoingRequestsSection } from "../components/friends/OutgoingRequestsSection";
 import { DirectDialogsSection } from "../components/friends/DirectDialogsSection";
 import { FriendsListSection } from "../components/friends/FriendsListSection";
+import { TwoColumnLayout } from "../components/layout/TwoColumnLayout";
 
 const PRESENCE_REFRESH_INTERVAL_MS = 2000;
 
@@ -283,92 +284,78 @@ export default function FriendsPage() {
 
         {error && <ErrorBanner error={error} />}
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "360px minmax(0, 1fr)",
-            gap: "24px",
-            alignItems: "start",
-          }}
+        <TwoColumnLayout
+          sidebar={
+            <aside
+              style={{
+                position: "sticky",
+                top: "20px",
+                display: "grid",
+                gap: "20px",
+              }}
+            >
+              <SendFriendRequestPanel
+                username={username}
+                message={message}
+                submitting={submitting}
+                hasPendingRequest={hasPendingRequest}
+                formError={formError}
+                onUsernameChange={(value) => {
+                  setUsername(value);
+                  setFormError(null);
+                }}
+                onMessageChange={(value) => {
+                  setMessage(value);
+                  setFormError(null);
+                }}
+                onSubmit={handleSendRequest}
+              />
+            </aside>
+          }
+          sidebarWidth="360px"
         >
-          <aside
-            style={{
-              position: "sticky",
-              top: "20px",
-              display: "grid",
-              gap: "20px",
-            }}
-          >
-            <SendFriendRequestPanel
-              username={username}
-              message={message}
-              submitting={submitting}
-              hasPendingRequest={hasPendingRequest}
-              formError={formError}
-              onUsernameChange={(value) => {
-                setUsername(value);
-                setFormError(null);
-              }}
-              onMessageChange={(value) => {
-                setMessage(value);
-                setFormError(null);
-              }}
-              onSubmit={handleSendRequest}
-            />
-          </aside>
+          <IncomingRequestsSection
+            incoming={incoming}
+            actionLoadingId={actionLoadingId}
+            presenceByUserId={presenceByUserId}
+            onAccept={(requestId) =>
+              runRequestAction(requestId, () => acceptFriendRequest(requestId))
+            }
+            onReject={(requestId) =>
+              runRequestAction(requestId, () => rejectFriendRequest(requestId))
+            }
+          />
 
-          <main style={{ display: "grid", gap: "24px" }}>
-            <IncomingRequestsSection
-              incoming={incoming}
-              actionLoadingId={actionLoadingId}
-              presenceByUserId={presenceByUserId}
-              onAccept={(requestId) =>
-                runRequestAction(requestId, () =>
-                  acceptFriendRequest(requestId),
-                )
-              }
-              onReject={(requestId) =>
-                runRequestAction(requestId, () =>
-                  rejectFriendRequest(requestId),
-                )
-              }
-            />
+          <OutgoingRequestsSection
+            outgoing={outgoing}
+            actionLoadingId={actionLoadingId}
+            presenceByUserId={presenceByUserId}
+            onCancel={(requestId) =>
+              runRequestAction(requestId, () => cancelFriendRequest(requestId))
+            }
+          />
 
-            <OutgoingRequestsSection
-              outgoing={outgoing}
-              actionLoadingId={actionLoadingId}
-              presenceByUserId={presenceByUserId}
-              onCancel={(requestId) =>
-                runRequestAction(requestId, () =>
-                  cancelFriendRequest(requestId),
-                )
-              }
-            />
+          <DirectDialogsSection
+            dialogs={dialogs}
+            currentUserId={currentUserId}
+            presenceByUserId={presenceByUserId}
+            onOpenDialog={(roomId) => navigate(`/rooms/${roomId}`)}
+          />
 
-            <DirectDialogsSection
-              dialogs={dialogs}
-              currentUserId={currentUserId}
-              presenceByUserId={presenceByUserId}
-              onOpenDialog={(roomId) => navigate(`/rooms/${roomId}`)}
-            />
-
-            <FriendsListSection
-              friends={friends}
-              messageLoadingId={messageLoadingId}
-              friendActionLoadingKey={friendActionLoadingKey}
-              presenceByUserId={presenceByUserId}
-              onMessage={handleMessage}
-              onRemoveFriend={(friendId) =>
-                runFriendAction(friendId, "remove", () =>
-                  removeFriend(friendId),
-                )
-              }
-              onBanUser={(friendId) =>
-                runFriendAction(friendId, "ban", () => banUser(friendId))
-              }
-            />
-          </main>
-        </div>
+          <FriendsListSection
+            friends={friends}
+            messageLoadingId={messageLoadingId}
+            friendActionLoadingKey={friendActionLoadingKey}
+            presenceByUserId={presenceByUserId}
+            onMessage={handleMessage}
+            onRemoveFriend={(friendId) =>
+              runFriendAction(friendId, "remove", () => removeFriend(friendId))
+            }
+            onBanUser={(friendId) =>
+              runFriendAction(friendId, "ban", () => banUser(friendId))
+            }
+          />
+        </TwoColumnLayout>
       </div>
     </PageShell>
   );

@@ -118,8 +118,10 @@ export function ChatPanel({
   }, [messages]);
 
   useEffect(() => {
+    const container = messagesContainerRef.current;
     const sentinel = olderMessagesSentinelRef.current;
     if (
+      !container ||
       !sentinel ||
       !hasMoreMessages ||
       loadingOlderMessages ||
@@ -135,7 +137,7 @@ export function ChatPanel({
         }
       },
       {
-        root: null,
+        root: container,
         threshold: 0.1,
       },
     );
@@ -151,76 +153,89 @@ export function ChatPanel({
 
   return (
     <Panel>
-      <ChatPanelHeader
-        room={room}
-        messagesCount={messages.length}
-        wsStatus={wsStatus}
-      />
-
       <div
         style={{
-          minHeight: "360px",
-          borderRadius: "22px",
-          border: `1px dashed ${palette.border}`,
-          background: `linear-gradient(180deg, ${palette.cardSoft} 0%, ${palette.cardBg} 100%)`,
-          padding: "24px",
           display: "flex",
           flexDirection: "column",
-          gap: "16px",
+          gap: "18px",
+          minHeight: "min(70vh, 760px)",
         }}
       >
-        {friendRequestFeedback ? (
-          <FriendRequestFeedbackBanner feedback={friendRequestFeedback} />
-        ) : null}
-
-        {replyTo ? (
-          <ReplyPreviewBanner replyTo={replyTo} onCancelReply={onCancelReply} />
-        ) : null}
-
-        <MessageList
+        <ChatPanelHeader
           room={room}
-          messages={messages}
-          messagesLoading={messagesLoading}
-          messagesError={messagesError}
-          loadingOlderMessages={loadingOlderMessages}
-          currentUserId={currentUserId}
-          editingMessageId={editingMessageId}
-          editingMessageContent={editingMessageContent}
-          onEditingMessageChange={onEditingMessageChange}
-          onStartEdit={onStartEdit}
-          onCancelEdit={onCancelEdit}
-          onSaveEdit={onSaveEdit}
-          editingSaving={editingSaving}
-          onDeleteMessage={onDeleteMessage}
-          onReply={onReply}
-          onBanMember={onBanMember}
-          onRemoveMember={onRemoveMember}
-          moderationActionLoadingKey={moderationActionLoadingKey}
-          friendRequestLoadingKey={friendRequestLoadingKey}
-          friendRelationByUserId={friendRelationByUserId}
-          onSendFriendRequest={onSendFriendRequest}
-          presenceByUserId={presenceByUserId}
-          canModerateRoom={canModerateRoom}
-          messagesContainerRef={messagesContainerRef}
-          olderMessagesSentinelRef={olderMessagesSentinelRef}
-          messagesEndRef={messagesEndRef}
+          messagesCount={messages.length}
+          wsStatus={wsStatus}
+        />
+
+        <div
+          style={{
+            flex: 1,
+            minHeight: "360px",
+            borderRadius: "22px",
+            border: `1px dashed ${palette.border}`,
+            background: `linear-gradient(180deg, ${palette.cardSoft} 0%, ${palette.cardBg} 100%)`,
+            padding: "24px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "16px",
+          }}
+        >
+          {friendRequestFeedback ? (
+            <FriendRequestFeedbackBanner feedback={friendRequestFeedback} />
+          ) : null}
+
+          {replyTo ? (
+            <ReplyPreviewBanner
+              replyTo={replyTo}
+              onCancelReply={onCancelReply}
+            />
+          ) : null}
+
+          <MessageList
+            room={room}
+            messages={messages}
+            messagesLoading={messagesLoading}
+            messagesError={messagesError}
+            loadingOlderMessages={loadingOlderMessages}
+            currentUserId={currentUserId}
+            editingMessageId={editingMessageId}
+            editingMessageContent={editingMessageContent}
+            onEditingMessageChange={onEditingMessageChange}
+            onStartEdit={onStartEdit}
+            onCancelEdit={onCancelEdit}
+            onSaveEdit={onSaveEdit}
+            editingSaving={editingSaving}
+            onDeleteMessage={onDeleteMessage}
+            onReply={onReply}
+            onBanMember={onBanMember}
+            onRemoveMember={onRemoveMember}
+            moderationActionLoadingKey={moderationActionLoadingKey}
+            friendRequestLoadingKey={friendRequestLoadingKey}
+            friendRelationByUserId={friendRelationByUserId}
+            onSendFriendRequest={onSendFriendRequest}
+            presenceByUserId={presenceByUserId}
+            canModerateRoom={canModerateRoom}
+            messagesContainerRef={messagesContainerRef}
+            olderMessagesSentinelRef={olderMessagesSentinelRef}
+            messagesEndRef={messagesEndRef}
+          />
+        </div>
+
+        <MessageComposer
+          room={room}
+          messageContent={messageContent}
+          onMessageChange={onMessageChange}
+          onSendMessage={onSendMessage}
+          pendingAttachments={pendingAttachments}
+          onPendingAttachmentsChange={onPendingAttachmentsChange}
+          attachmentComment={attachmentComment}
+          onAttachmentCommentChange={onAttachmentCommentChange}
+          onComposerPaste={onComposerPaste}
+          onRemovePendingAttachment={onRemovePendingAttachment}
+          uploadingAttachments={uploadingAttachments}
+          sendingMessage={sendingMessage}
         />
       </div>
-
-      <MessageComposer
-        room={room}
-        messageContent={messageContent}
-        onMessageChange={onMessageChange}
-        onSendMessage={onSendMessage}
-        pendingAttachments={pendingAttachments}
-        onPendingAttachmentsChange={onPendingAttachmentsChange}
-        attachmentComment={attachmentComment}
-        onAttachmentCommentChange={onAttachmentCommentChange}
-        onComposerPaste={onComposerPaste}
-        onRemovePendingAttachment={onRemovePendingAttachment}
-        uploadingAttachments={uploadingAttachments}
-        sendingMessage={sendingMessage}
-      />
     </Panel>
   );
 }

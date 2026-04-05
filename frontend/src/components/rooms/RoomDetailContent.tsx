@@ -1,6 +1,7 @@
 import { ChatPanel } from "./ChatPanel";
 import { RoomHero } from "./RoomHero";
 import { RoomSidebar } from "./RoomSidebar";
+import { TwoColumnLayout } from "../layout/TwoColumnLayout";
 import type { Room } from "../../types/room";
 
 type RoomSidebarProps = React.ComponentProps<typeof RoomSidebar>;
@@ -23,20 +24,9 @@ export function RoomDetailContent({
     <>
       <RoomHero room={room} currentUserId={currentUserId} />
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "340px minmax(0, 1fr)",
-          gap: "24px",
-          alignItems: "start",
-        }}
-      >
-        <RoomSidebar {...sidebarProps} />
-
-        <main style={{ display: "grid", gap: "24px" }}>
-          <ChatPanel {...chatPanelProps} />
-        </main>
-      </div>
+      <TwoColumnLayout sidebar={<RoomSidebar {...sidebarProps} />}>
+        <ChatPanel {...chatPanelProps} />
+      </TwoColumnLayout>
     </>
   );
 }

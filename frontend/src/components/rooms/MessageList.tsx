@@ -159,6 +159,11 @@ export function MessageList({
         display: "flex",
         flexDirection: "column",
         gap: "12px",
+        flex: 1,
+        minHeight: 0,
+        maxHeight: "52vh",
+        overflowY: "auto",
+        paddingRight: "4px",
       }}
     >
       <div ref={olderMessagesSentinelRef} style={{ height: "1px" }} />
