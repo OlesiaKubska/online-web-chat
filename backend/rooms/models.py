@@ -5,6 +5,27 @@ from django.db.models import UniqueConstraint, Q, F
 from django.db.models.functions import Lower
 
 
+MAX_ROOM_PARTICIPANTS = 1000
+MAX_ATTACHMENT_FILE_SIZE_BYTES = 20 * 1024 * 1024
+MAX_ATTACHMENT_IMAGE_SIZE_BYTES = 3 * 1024 * 1024
+
+
+def validate_attachment_upload(uploaded_file):
+    if not uploaded_file:
+        return uploaded_file
+
+    file_size = getattr(uploaded_file, "size", 0) or 0
+    content_type = (getattr(uploaded_file, "content_type", "") or "").lower()
+
+    if content_type.startswith("image/") and file_size > MAX_ATTACHMENT_IMAGE_SIZE_BYTES:
+        raise ValidationError("Images cannot exceed 3 MB.")
+
+    if file_size > MAX_ATTACHMENT_FILE_SIZE_BYTES:
+        raise ValidationError("Files cannot exceed 20 MB.")
+
+    return uploaded_file
+
+
 class Room(models.Model):
     class Visibility(models.TextChoices):
         PUBLIC = 'public', 'Public'
@@ -164,6 +185,9 @@ class Message(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['room', '-created_at'], name='message_room_created_idx'),
+        ]
 
     def __str__(self):
         return f'Message {self.id} by {self.user} in room {self.room_id}'
@@ -214,10 +238,21 @@ class MessageAttachment(models.Model):
         on_delete=models.CASCADE,
         related_name="attachments",
     )
-    file = models.FileField(upload_to="chat_attachments/")
+    file = models.FileField(
+        upload_to="chat_attachments/",
+        validators=[validate_attachment_upload],
+    )
     original_name = models.CharField(max_length=255)
     comment = models.CharField(max_length=255, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def clean(self):
+        super().clean()
+        validate_attachment_upload(self.file)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
 
     def __str__(self):
         return self.original_name

@@ -3,7 +3,7 @@ from django.db import transaction, IntegrityError
 
 from friends.services import are_friends, is_user_banned, normalize_user_pair
 
-from .models import Room, RoomMembership, Message
+from .models import MAX_ROOM_PARTICIPANTS, Room, RoomMembership, Message
 
 
 def can_delete_room(user, room):
@@ -28,6 +28,28 @@ def can_delete_message(user, message):
     if message.room.is_direct:
         return can_delete_own_message(user, message)
     return can_delete_own_message(user, message) or can_moderate_message(user, message)
+
+
+def add_user_to_room(room, user, role=RoomMembership.Role.MEMBER):
+    with transaction.atomic():
+        locked_room = Room.objects.select_for_update().get(pk=room.pk)
+        existing_membership = RoomMembership.objects.filter(room=locked_room, user=user).first()
+        if existing_membership:
+            return existing_membership, False
+
+        if not locked_room.is_direct:
+            member_count = RoomMembership.objects.filter(room=locked_room).count()
+            if member_count >= MAX_ROOM_PARTICIPANTS:
+                raise ValidationError(
+                    f"Room has reached the maximum of {MAX_ROOM_PARTICIPANTS} participants."
+                )
+
+        membership = RoomMembership.objects.create(
+            room=locked_room,
+            user=user,
+            role=role,
+        )
+        return membership, True
 
 
 def can_write_in_direct_dialog(user, room):

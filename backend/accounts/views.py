@@ -43,15 +43,39 @@ def _sync_session_meta(request):
     if not session_key:
         return
 
-    UserSessionMeta.objects.update_or_create(
+    user_agent = request.META.get('HTTP_USER_AGENT', '')[:512]
+    ip_address = _get_client_ip(request) or None
+
+    defaults = {
+        'user': request.user,
+        'last_seen': timezone.now(),
+    }
+    if user_agent:
+        defaults['user_agent'] = user_agent
+    if ip_address:
+        defaults['ip_address'] = ip_address
+
+    session_meta, created = UserSessionMeta.objects.get_or_create(
         session_key=session_key,
-        defaults={
-            'user': request.user,
-            'user_agent': request.META.get('HTTP_USER_AGENT', '')[:512],
-            'ip_address': _get_client_ip(request) or None,
-            'last_seen': timezone.now(),
-        },
+        defaults=defaults,
     )
+
+    if created:
+        return
+
+    session_meta.user = request.user
+    session_meta.last_seen = defaults['last_seen']
+    update_fields = ['user', 'last_seen']
+
+    if user_agent:
+        session_meta.user_agent = user_agent
+        update_fields.append('user_agent')
+
+    if ip_address:
+        session_meta.ip_address = ip_address
+        update_fields.append('ip_address')
+
+    session_meta.save(update_fields=update_fields)
 
 
 def _collect_active_sessions(user, current_session_key):

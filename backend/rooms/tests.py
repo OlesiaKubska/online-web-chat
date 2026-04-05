@@ -353,6 +353,32 @@ class RoomFeatureApiTests(APITestCase):
         join_forbidden = self.client.post(f'/api/rooms/{room.id}/join/')
         self.assertEqual(join_forbidden.status_code, status.HTTP_403_FORBIDDEN)
 
+    def test_join_public_room_rejects_when_capacity_is_reached(self):
+        room = self._create_room(name='Capacity Full', visibility=Room.Visibility.PUBLIC)
+        filler_users = [
+            User(username=f'capacity-{index}', email=f'capacity-{index}@example.com', password='!')
+            for index in range(999)
+        ]
+        User.objects.bulk_create(filler_users)
+        persisted_fillers = list(User.objects.filter(username__startswith='capacity-'))
+        RoomMembership.objects.bulk_create(
+            [
+                RoomMembership(room=room, user=user, role=RoomMembership.Role.MEMBER)
+                for user in persisted_fillers
+            ]
+        )
+
+        self.assertEqual(RoomMembership.objects.filter(room=room).count(), 1000)
+
+        self.client.force_login(self.other)
+        join_response = self.client.post(f'/api/rooms/{room.id}/join/')
+
+        self.assertEqual(join_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            join_response.data['detail'],
+            'Room has reached the maximum of 1000 participants.',
+        )
+
     def test_private_room_join_blocked_without_invitation(self):
         room = self._create_room(name='Secret', visibility=Room.Visibility.PRIVATE)
         self.client.force_login(self.member)
@@ -422,6 +448,27 @@ class RoomFeatureApiTests(APITestCase):
         self.assertEqual(remove_response.status_code, status.HTTP_200_OK)
         self.assertFalse(RoomMembership.objects.filter(room=room, user=self.member).exists())
         self.assertTrue(RoomBan.objects.filter(room=room, banned_user=self.member).exists())
+
+    def test_removed_member_cannot_edit_or_delete_old_messages(self):
+        room = self._create_room(name='History Protection')
+        RoomMembership.objects.create(room=room, user=self.admin, role=RoomMembership.Role.ADMIN)
+        RoomMembership.objects.create(room=room, user=self.member, role=RoomMembership.Role.MEMBER)
+        message = Message.objects.create(room=room, user=self.member, content='before removal')
+
+        self.client.force_login(self.admin)
+        remove_response = self.client.delete(f'/api/rooms/{room.id}/members/{self.member.id}/')
+        self.assertEqual(remove_response.status_code, status.HTTP_200_OK)
+
+        self.client.force_login(self.member)
+        edit_response = self.client.patch(
+            f'/api/rooms/messages/{message.id}/',
+            {'content': 'after removal'},
+            format='json',
+        )
+        delete_response = self.client.delete(f'/api/rooms/messages/{message.id}/')
+
+        self.assertEqual(edit_response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(delete_response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_banned_list_contains_banned_by_metadata_and_unban_allows_rejoin(self):
         room = self._create_room(name='Ban List')
@@ -668,6 +715,51 @@ class MessagingApiTests(APITestCase):
         self.client.force_login(self.bob)
         download = self.client.get(f'/api/rooms/attachments/{attachment_id}/download/')
         self.assertEqual(download.status_code, status.HTTP_200_OK)
+
+    def test_attachment_upload_rejects_file_larger_than_20mb(self):
+        self.client.force_login(self.alice)
+        message = Message.objects.create(room=self.room, user=self.alice, content='With large file')
+        oversized_file = SimpleUploadedFile(
+            'large.bin',
+            b'a' * ((20 * 1024 * 1024) + 1),
+            content_type='application/octet-stream',
+        )
+
+        response = self.client.post(
+            f'/api/rooms/room-messages/{message.id}/attachments/',
+            {'file': oversized_file},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['detail'], 'Files cannot exceed 20 MB.')
+
+    def test_attachment_upload_rejects_image_larger_than_3mb(self):
+        self.client.force_login(self.alice)
+        message = Message.objects.create(room=self.room, user=self.alice, content='With large image')
+        oversized_image = SimpleUploadedFile(
+            'large.png',
+            b'\x89PNG\r\n\x1a\n' + (b'a' * ((3 * 1024 * 1024) + 1)),
+            content_type='image/png',
+        )
+
+        response = self.client.post(
+            f'/api/rooms/room-messages/{message.id}/attachments/',
+            {'file': oversized_image},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['detail'], 'Images cannot exceed 3 MB.')
+
+    def test_attachment_upload_is_limited_to_message_author(self):
+        message = Message.objects.create(room=self.room, user=self.alice, content='Alice message')
+        self.client.force_login(self.bob)
+
+        response = self.client.post(
+            f'/api/rooms/room-messages/{message.id}/attachments/',
+            {'file': SimpleUploadedFile('intrude.txt', b'not-allowed')},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_attachment_upload_image_preserves_metadata(self):
         self.client.force_login(self.alice)

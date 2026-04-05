@@ -174,7 +174,22 @@ class ActiveSessionsTests(APITestCase):
         self.assertEqual(len(response.data), 1)
         self.assertTrue(response.data[0]['is_current'])
         # IP and user_agent are captured; exact values depend on test env
-        self.assertIsNotNone(response.data[0]['ip_address'])        # User agent may or may not be captured in test env; just verify it's a string        self.assertEqual(response.data[0]['user_agent'], 'BrowserA')
+        self.assertIsNotNone(response.data[0]['ip_address'])
+        self.assertEqual(response.data[0]['user_agent'], 'BrowserA')
+
+    def test_session_persists_across_new_client_with_same_cookie(self):
+        self._login_client(self.client, user_agent='BrowserA', ip='10.1.1.1')
+        session_cookie = self.client.cookies.get('sessionid')
+
+        self.assertIsNotNone(session_cookie)
+        self.assertTrue(session_cookie.value)
+
+        restarted_client = self.client_class()
+        restarted_client.cookies['sessionid'] = session_cookie.value
+
+        me_response = restarted_client.get('/api/auth/me/')
+        self.assertEqual(me_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(me_response.data['email'], self.user.email)
 
     def test_revoke_other_session_keeps_current_active(self):
         other_client = self.client_class()

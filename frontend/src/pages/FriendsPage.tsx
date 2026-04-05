@@ -33,7 +33,7 @@ import { OutgoingRequestsSection } from "../components/friends/OutgoingRequestsS
 import { DirectDialogsSection } from "../components/friends/DirectDialogsSection";
 import { FriendsListSection } from "../components/friends/FriendsListSection";
 
-const PRESENCE_REFRESH_INTERVAL_MS = 5000;
+const PRESENCE_REFRESH_INTERVAL_MS = 2000;
 
 function getErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof ApiError) {

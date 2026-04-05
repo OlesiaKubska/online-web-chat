@@ -7,9 +7,9 @@ const SESSION_ID_KEY = 'presence_session_id'
 const TAB_ID_KEY = 'presence_tab_id'
 const TABS_STATE_PREFIX = 'presence_tabs_'
 
-const HEARTBEAT_INTERVAL = 12000
+const HEARTBEAT_INTERVAL = 2000
 const AFK_TIMEOUT = 60000
-const TAB_STATE_HEARTBEAT_MS = 5000
+const TAB_STATE_HEARTBEAT_MS = 2000
 const TAB_STATE_STALE_MS = 30000
 
 type PresenceStatus = 'online' | 'afk'
@@ -132,6 +132,22 @@ export function usePresence() {
   const broadcastRef = useRef<BroadcastChannel | null>(null)
 
   useEffect(() => {
+    const sendHeartbeatNow = (presenceStatus: PresenceStatus) => {
+      if (!isLeaderRef.current) {
+        return
+      }
+
+      const payload: PresenceHeartbeatPayload = {
+        session_id: sessionId,
+        tab_id: tabId,
+        status: presenceStatus,
+      }
+
+      void sendPresenceHeartbeat(payload).catch((error) => {
+        console.error('Presence heartbeat failed:', error)
+      })
+    }
+
     const recomputeFromStorage = () => {
       const nowMs = Date.now()
       const tabs = safeParseTabsState(localStorage.getItem(tabsStorageKey))
@@ -149,18 +165,11 @@ export function usePresence() {
       isLeaderRef.current = isLeader
 
       if (!wasLeader && isLeader) {
-        const payload: PresenceHeartbeatPayload = {
-          session_id: sessionId,
-          tab_id: tabId,
-          status: globalStatus,
-        }
-        void sendPresenceHeartbeat(payload).catch((error) => {
-          console.error('Presence heartbeat failed:', error)
-        })
+        sendHeartbeatNow(globalStatus)
       }
     }
 
-    const upsertTabState = () => {
+    const upsertTabState = (sendImmediate = false) => {
       const nowMs = Date.now()
       const tabs = safeParseTabsState(localStorage.getItem(tabsStorageKey))
       const freshTabs = getFreshTabs(tabs, nowMs)
@@ -175,6 +184,10 @@ export function usePresence() {
       localStorage.setItem(tabsStorageKey, JSON.stringify(freshTabs))
       broadcastRef.current?.postMessage({ type: 'presence-updated', tabId })
       recomputeFromStorage()
+
+      if (sendImmediate) {
+        sendHeartbeatNow(globalStatusRef.current)
+      }
     }
 
     upsertTabState()
@@ -188,15 +201,7 @@ export function usePresence() {
         return
       }
 
-      const payload: PresenceHeartbeatPayload = {
-        session_id: sessionId,
-        tab_id: tabId,
-        status: globalStatusRef.current,
-      }
-
-      void sendPresenceHeartbeat(payload).catch((error) => {
-        console.error('Presence heartbeat failed:', error)
-      })
+      sendHeartbeatNow(globalStatusRef.current)
     }, HEARTBEAT_INTERVAL)
 
     const scheduleAfkTimeout = () => {
@@ -206,7 +211,7 @@ export function usePresence() {
 
       afkTimeoutRef.current = setTimeout(() => {
         localStatusRef.current = 'afk'
-        upsertTabState()
+        upsertTabState(true)
       }, AFK_TIMEOUT)
     }
 
@@ -214,8 +219,10 @@ export function usePresence() {
       if (document.visibilityState !== 'visible') {
         return
       }
+
+      const statusChanged = localStatusRef.current !== 'online'
       localStatusRef.current = 'online'
-      upsertTabState()
+      upsertTabState(statusChanged)
       scheduleAfkTimeout()
     }
 

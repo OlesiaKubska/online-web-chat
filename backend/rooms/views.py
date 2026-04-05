@@ -7,7 +7,7 @@ from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from django.http import FileResponse
 from django.contrib.auth import get_user_model
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 
 from rest_framework import generics, status
 from rest_framework.parsers import MultiPartParser, FormParser
@@ -16,7 +16,14 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.exceptions import PermissionDenied, NotFound
 
-from .models import Room, RoomMembership, Message, RoomBan, MessageAttachment
+from .models import (
+    Room,
+    RoomMembership,
+    Message,
+    RoomBan,
+    MessageAttachment,
+    validate_attachment_upload,
+)
 from .serializers import (
     RoomSerializer,
     CreateRoomSerializer,
@@ -205,11 +212,17 @@ class InvitePrivateRoomUserView(APIView):
         if RoomBan.objects.filter(room=room, banned_user=invited_user).exists():
             return Response({'detail': 'Cannot invite a banned user.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        membership, created = RoomMembership.objects.get_or_create(
-            room=room,
-            user=invited_user,
-            defaults={'role': RoomMembership.Role.MEMBER},
-        )
+        from .services import add_user_to_room
+
+        try:
+            membership, created = add_user_to_room(
+                room=room,
+                user=invited_user,
+                role=RoomMembership.Role.MEMBER,
+            )
+        except DjangoValidationError as exc:
+            detail = exc.message if hasattr(exc, 'message') else exc.messages[0]
+            return Response({'detail': detail}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(
             {
@@ -245,11 +258,17 @@ class JoinRoomView(APIView):
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        membership, created = RoomMembership.objects.get_or_create(
-            room=room,
-            user=request.user,
-            defaults={'role': RoomMembership.Role.MEMBER}
-        )
+        from .services import add_user_to_room
+
+        try:
+            membership, created = add_user_to_room(
+                room=room,
+                user=request.user,
+                role=RoomMembership.Role.MEMBER,
+            )
+        except DjangoValidationError as exc:
+            detail = exc.message if hasattr(exc, 'message') else exc.messages[0]
+            return Response({'detail': detail}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response({
             'detail': 'Joined room successfully.',
@@ -309,7 +328,7 @@ class RoomMessageListCreateView(APIView):
             'user',
             'reply_to',
             'reply_to__user',
-        )
+        ).prefetch_related('attachments')
 
         cursor = request.query_params.get('cursor')
         if cursor:
@@ -354,6 +373,7 @@ class MessageDetailView(APIView):
     def patch(self, request, pk):
         message = self.get_message(pk)
 
+        ensure_room_member(message.room, request.user)
         ensure_direct_dialog_writable(message.room, request.user)
 
         if message.user_id != request.user.id:
@@ -369,6 +389,7 @@ class MessageDetailView(APIView):
     def delete(self, request, pk):
         message = self.get_message(pk)
 
+        ensure_room_member(message.room, request.user)
         ensure_direct_dialog_writable(message.room, request.user)
 
         from .services import can_delete_message
@@ -438,15 +459,14 @@ class BanUserView(APIView):
         )
         serializer.is_valid(raise_exception=True)
         try:
-            ban = serializer.save()
+            with transaction.atomic():
+                ban = serializer.save()
+                RoomMembership.objects.filter(room=room, user=banned_user).delete()
         except IntegrityError:
             return Response(
                 {'detail': 'User is already banned from this room.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
-        # Remove from membership if present
-        RoomMembership.objects.filter(room=room, user=banned_user).delete()
 
         output_serializer = RoomBanSerializer(ban)
         return Response(output_serializer.data, status=status.HTTP_201_CREATED)
@@ -512,29 +532,29 @@ class RemoveMemberView(APIView):
         if membership.role == RoomMembership.Role.OWNER:
             return Response({'detail': 'Cannot remove the room owner.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        existing_ban = RoomBan.objects.filter(room=room, banned_user=member_user).first()
-        if existing_ban:
+        with transaction.atomic():
+            existing_ban = RoomBan.objects.filter(room=room, banned_user=member_user).first()
+            if existing_ban:
+                membership.delete()
+                output_serializer = RoomBanSerializer(existing_ban)
+                return Response(output_serializer.data, status=status.HTTP_200_OK)
+
+            # Create ban (reason can be from request data if provided)
+            reason = request.data.get('reason', 'Removed by moderator')
+            try:
+                ban = RoomBan.objects.create(
+                    room=room,
+                    banned_user=member_user,
+                    banned_by=request.user,
+                    reason=reason,
+                )
+            except IntegrityError:
+                return Response(
+                    {'detail': 'User is already banned from this room.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             membership.delete()
-            output_serializer = RoomBanSerializer(existing_ban)
-            return Response(output_serializer.data, status=status.HTTP_200_OK)
-
-        # Create ban (reason can be from request data if provided)
-        reason = request.data.get('reason', 'Removed by moderator')
-        try:
-            ban = RoomBan.objects.create(
-                room=room,
-                banned_user=member_user,
-                banned_by=request.user,
-                reason=reason,
-            )
-        except IntegrityError:
-            return Response(
-                {'detail': 'User is already banned from this room.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # Remove membership
-        membership.delete()
 
         output_serializer = RoomBanSerializer(ban)
         return Response(output_serializer.data, status=status.HTTP_200_OK)
@@ -630,6 +650,15 @@ class MessageAttachmentUploadView(APIView):
         uploaded_file = request.FILES.get("file")
         if not uploaded_file:
             return Response({"detail": "File is required."}, status=400)
+
+        if message.user_id != request.user.id:
+            raise PermissionDenied('You can add attachments only to your own messages.')
+
+        try:
+            validate_attachment_upload(uploaded_file)
+        except DjangoValidationError as exc:
+            detail = exc.message if hasattr(exc, 'message') else exc.messages[0]
+            return Response({"detail": detail}, status=status.HTTP_400_BAD_REQUEST)
 
         attachment = MessageAttachment.objects.create(
             message=message,

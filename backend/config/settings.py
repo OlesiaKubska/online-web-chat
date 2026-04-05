@@ -148,6 +148,9 @@ CSRF_TRUSTED_ORIGINS = [
     'http://localhost:5174',
 ]
 
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 14
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 

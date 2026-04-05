@@ -165,7 +165,7 @@ class RoomChatConsumer(AsyncWebsocketConsumer):
             "user",
             "reply_to",
             "reply_to__user",
-        ).get(pk=message.pk)
+        ).prefetch_related("attachments").get(pk=message.pk)
         return MessageSerializer(message).data
 
     @sync_to_async
