@@ -95,6 +95,42 @@ class LoginAndRegistrationTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.data['email'][0], 'A user with this email already exists.')
 
+    def test_registration_rejects_duplicate_username_case_insensitive(self):
+        response = self.client.post(
+            '/api/auth/register/',
+            {
+                'email': 'alice-two@example.com',
+                'username': 'ALICE',
+                'password': 'new-password-123',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['username'][0], 'A user with this username already exists.')
+
+
+class ProfileImmutabilityTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='alice',
+            email='alice@example.com',
+            password='old-password-123',
+        )
+
+    def test_me_endpoint_rejects_username_update_attempt(self):
+        self.client.force_login(self.user)
+
+        response = self.client.patch(
+            '/api/auth/me/',
+            {'username': 'renamed-alice'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.username, 'alice')
+
 
 class PasswordResetTests(APITestCase):
     def setUp(self):
