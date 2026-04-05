@@ -384,6 +384,7 @@ export default function RoomsPage() {
             </aside>
           }
           sidebarWidth="360px"
+          sidebarPosition="right"
         >
           <SectionShell
             title="My rooms"

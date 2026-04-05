@@ -24,7 +24,10 @@ export function RoomDetailContent({
     <>
       <RoomHero room={room} currentUserId={currentUserId} />
 
-      <TwoColumnLayout sidebar={<RoomSidebar {...sidebarProps} />}>
+      <TwoColumnLayout
+        sidebar={<RoomSidebar {...sidebarProps} />}
+        sidebarPosition="right"
+      >
         <ChatPanel {...chatPanelProps} />
       </TwoColumnLayout>
     </>

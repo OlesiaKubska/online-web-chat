@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import type { Room, RoomBan, RoomMember } from "../../types/room";
 import type { UserPresenceStatus } from "../../lib/api";
 import {
@@ -66,6 +67,14 @@ export function RoomSidebar({
   onToggleMembers,
   onUpdateRole,
 }: RoomSidebarProps) {
+  const [showRoomDetails, setShowRoomDetails] = useState(!room.joined);
+  const canViewMembers = room.joined && !room.is_direct;
+  const canManageRoom = isModerator && !room.is_direct;
+
+  useEffect(() => {
+    setShowRoomDetails(!room.joined);
+  }, [room.joined]);
+
   return (
     <aside
       style={{
@@ -76,23 +85,48 @@ export function RoomSidebar({
       }}
     >
       <Panel>
-        <h2 style={panelTitleStyle}>Room details</h2>
-        <div style={{ display: "grid", gap: "12px" }}>
-          <InfoRow label="Owner" value={room.owner_username} />
-          <InfoRow
-            label="Your role"
-            value={room.my_role ? room.my_role : "Not a member"}
-          />
-          <InfoRow
-            label="Created"
-            value={new Date(room.created_at).toLocaleDateString()}
-          />
-          <InfoRow
-            label="Visibility"
-            value={room.visibility}
-            tone={room.visibility === "public" ? "success" : "danger"}
-          />
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            gap: "12px",
+            alignItems: "center",
+            marginBottom: showRoomDetails ? "16px" : 0,
+          }}
+        >
+          <h2 style={{ ...panelTitleStyle, marginBottom: 0 }}>Room details</h2>
+          <button
+            type="button"
+            onClick={() => setShowRoomDetails((current) => !current)}
+            style={{
+              ...secondaryButtonStyle,
+              minWidth: "auto",
+              padding: "6px 10px",
+              fontSize: "12px",
+            }}
+          >
+            {showRoomDetails ? "Collapse" : "Expand"}
+          </button>
         </div>
+
+        {showRoomDetails ? (
+          <div style={{ display: "grid", gap: "12px" }}>
+            <InfoRow label="Owner" value={room.owner_username} />
+            <InfoRow
+              label="Your role"
+              value={room.my_role ? room.my_role : "Not a member"}
+            />
+            <InfoRow
+              label="Created"
+              value={new Date(room.created_at).toLocaleDateString()}
+            />
+            <InfoRow
+              label="Visibility"
+              value={room.visibility}
+              tone={room.visibility === "public" ? "success" : "danger"}
+            />
+          </div>
+        ) : null}
       </Panel>
 
       <Panel>
@@ -143,7 +177,7 @@ export function RoomSidebar({
             </div>
           )}
 
-          {isModerator && !room.is_direct && (
+          {canManageRoom && (
             <button
               onClick={onToggleBannedUsers}
               style={{
@@ -155,7 +189,7 @@ export function RoomSidebar({
             </button>
           )}
 
-          {isModerator && !room.is_direct && (
+          {canViewMembers && (
             <button
               onClick={onToggleMembers}
               style={{
@@ -163,7 +197,7 @@ export function RoomSidebar({
                 backgroundColor: palette.cardSoft,
               }}
             >
-              {showMembers ? "Hide members" : "Manage admins"}
+              {showMembers ? "Hide members" : "Show members"}
             </button>
           )}
 
@@ -256,7 +290,7 @@ export function RoomSidebar({
         </Panel>
       )}
 
-      {isModerator && !room.is_direct && showMembers && (
+      {canViewMembers && showMembers && (
         <Panel>
           <h2 style={panelTitleStyle}>Members</h2>
 

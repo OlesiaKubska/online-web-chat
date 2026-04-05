@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { NavigateFunction } from "react-router-dom";
 
 import {
@@ -34,7 +34,7 @@ export function useRoomModeration({
   >(null);
 
   const [roomMembers, setRoomMembers] = useState<RoomMember[]>([]);
-  const [showMembers, setShowMembers] = useState(false);
+  const [showMembers, setShowMembers] = useState(true);
   const [membersLoading, setMembersLoading] = useState(false);
   const [inviteUsername, setInviteUsername] = useState("");
   const [invitingUser, setInvitingUser] = useState(false);
@@ -67,6 +67,17 @@ export function useRoomModeration({
       setMembersLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!room || room.is_direct || !room.joined) {
+      setRoomMembers([]);
+      return;
+    }
+
+    if (showMembers) {
+      void loadRoomMembers(room.id);
+    }
+  }, [room?.id, room?.joined, room?.is_direct, showMembers]);
 
   const runModerationAction = async (
     loadingKey: string,
@@ -156,13 +167,9 @@ export function useRoomModeration({
     }
   };
 
-  const handleToggleMembers = async () => {
+  const handleToggleMembers = () => {
     if (!room) return;
-    const next = !showMembers;
-    setShowMembers(next);
-    if (next) {
-      await loadRoomMembers(room.id);
-    }
+    setShowMembers((current) => !current);
   };
 
   const handleUpdateRole = async (userId: number, role: "admin" | "member") => {

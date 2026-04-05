@@ -313,6 +313,7 @@ export default function FriendsPage() {
             </aside>
           }
           sidebarWidth="360px"
+          sidebarPosition="right"
         >
           <IncomingRequestsSection
             incoming={incoming}
