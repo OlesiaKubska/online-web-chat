@@ -9,6 +9,7 @@ import {
   panelTitleStyle,
 } from "../../styles/roomsTheme";
 import { Panel } from "./Panel";
+import { ConfirmModal } from "./ConfirmModal";
 import { InfoRow } from "./InfoRow";
 import { PresenceBadge } from "./PresenceBadge";
 
@@ -68,8 +69,35 @@ export function RoomSidebar({
   onUpdateRole,
 }: RoomSidebarProps) {
   const [showRoomDetails, setShowRoomDetails] = useState(!room.joined);
+  const [pendingAction, setPendingAction] = useState<
+    | { type: "delete-room" }
+    | { type: "unban-user"; userId: number; username: string }
+    | {
+        type: "update-role";
+        userId: number;
+        username: string;
+        role: "admin" | "member";
+      }
+    | null
+  >(null);
   const canViewMembers = room.joined && !room.is_direct;
   const canManageRoom = isModerator && !room.is_direct;
+
+  const handleConfirmAction = () => {
+    if (!pendingAction) {
+      return;
+    }
+
+    if (pendingAction.type === "delete-room") {
+      onDeleteRoom();
+    } else if (pendingAction.type === "unban-user") {
+      onUnbanUser(pendingAction.userId);
+    } else {
+      onUpdateRole(pendingAction.userId, pendingAction.role);
+    }
+
+    setPendingAction(null);
+  };
 
   useEffect(() => {
     setShowRoomDetails(!room.joined);
@@ -203,7 +231,7 @@ export function RoomSidebar({
 
           {isOwner && !room.is_direct && (
             <button
-              onClick={onDeleteRoom}
+              onClick={() => setPendingAction({ type: "delete-room" })}
               disabled={moderationActionLoadingKey === "delete-room"}
               style={{
                 ...dangerButtonStyle,
@@ -264,7 +292,13 @@ export function RoomSidebar({
                   ) : null}
 
                   <button
-                    onClick={() => onUnbanUser(ban.banned_user)}
+                    onClick={() =>
+                      setPendingAction({
+                        type: "unban-user",
+                        userId: ban.banned_user,
+                        username: ban.banned_username,
+                      })
+                    }
                     disabled={
                       moderationActionLoadingKey === `unban-${ban.banned_user}`
                     }
@@ -356,7 +390,14 @@ export function RoomSidebar({
 
                     {canPromote && (
                       <button
-                        onClick={() => onUpdateRole(member.user_id, "admin")}
+                        onClick={() =>
+                          setPendingAction({
+                            type: "update-role",
+                            userId: member.user_id,
+                            username: member.username,
+                            role: "admin",
+                          })
+                        }
                         disabled={loading}
                         style={{
                           ...secondaryButtonStyle,
@@ -370,7 +411,14 @@ export function RoomSidebar({
 
                     {canDemote && (
                       <button
-                        onClick={() => onUpdateRole(member.user_id, "member")}
+                        onClick={() =>
+                          setPendingAction({
+                            type: "update-role",
+                            userId: member.user_id,
+                            username: member.username,
+                            role: "member",
+                          })
+                        }
                         disabled={loading}
                         style={{
                           ...secondaryButtonStyle,
@@ -434,6 +482,49 @@ export function RoomSidebar({
           </div>
         </Panel>
       )}
+
+      <ConfirmModal
+        open={pendingAction !== null}
+        title={
+          pendingAction?.type === "delete-room"
+            ? "Delete room?"
+            : pendingAction?.type === "unban-user"
+              ? "Unban user?"
+              : pendingAction?.role === "admin"
+                ? "Promote member?"
+                : "Remove admin role?"
+        }
+        message={
+          pendingAction?.type === "delete-room"
+            ? "This removes the room permanently for all members."
+            : pendingAction?.type === "unban-user"
+              ? `Allow ${pendingAction.username} back into this room?`
+              : pendingAction?.role === "admin"
+                ? `Promote ${pendingAction?.username} to admin?`
+                : `Demote ${pendingAction?.username} back to member?`
+        }
+        confirmLabel={
+          pendingAction?.type === "delete-room"
+            ? "Delete room"
+            : pendingAction?.type === "unban-user"
+              ? "Unban user"
+              : pendingAction?.role === "admin"
+                ? "Promote"
+                : "Demote"
+        }
+        danger={pendingAction?.type !== "update-role"}
+        loading={
+          pendingAction?.type === "delete-room"
+            ? moderationActionLoadingKey === "delete-room"
+            : pendingAction?.type === "unban-user"
+              ? moderationActionLoadingKey === `unban-${pendingAction.userId}`
+              : pendingAction?.type === "update-role"
+                ? moderationActionLoadingKey === `role-${pendingAction.userId}`
+                : false
+        }
+        onCancel={() => setPendingAction(null)}
+        onConfirm={handleConfirmAction}
+      />
     </aside>
   );
 }

@@ -151,10 +151,6 @@ export function useRoomModeration({
       return;
     }
 
-    if (!window.confirm("Delete this room permanently?")) {
-      return;
-    }
-
     try {
       setModerationActionLoadingKey("delete-room");
       await deleteRoom(room.id);

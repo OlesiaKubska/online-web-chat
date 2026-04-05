@@ -168,10 +168,6 @@ export function useRoomMessages({
   };
 
   const handleDeleteMessage = async (messageId: number) => {
-    if (!window.confirm("Are you sure you want to delete this message?")) {
-      return;
-    }
-
     try {
       await deleteMessage(messageId);
       setMessages((prev) => prev.filter((message) => message.id !== messageId));
