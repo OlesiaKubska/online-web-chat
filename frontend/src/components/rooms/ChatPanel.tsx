@@ -1,4 +1,10 @@
-import { useEffect, useRef, type ClipboardEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  type ClipboardEvent,
+} from "react";
 import type { UserPresenceStatus } from "../../lib/api";
 import type { Message } from "../../types/message";
 import type { Room } from "../../types/room";
@@ -10,6 +16,8 @@ import { MessageList } from "./MessageList";
 import type { FriendRelationStatus } from "./MessageActions";
 import { Panel } from "./Panel";
 import { ReplyPreviewBanner } from "./ReplyPreviewBanner";
+
+const AUTO_SCROLL_THRESHOLD_PX = 120;
 
 interface ChatPanelProps {
   room: Room;
@@ -100,22 +108,111 @@ export function ChatPanel({
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   const olderMessagesSentinelRef = useRef<HTMLDivElement | null>(null);
+  const shouldStickToBottomRef = useRef(true);
+  const initialAutoScrollDoneRef = useRef(false);
+  const preserveScrollStateRef = useRef({
+    pending: false,
+    scrollHeight: 0,
+    scrollTop: 0,
+  });
   const canModerateRoom =
     !room.is_direct && (room.my_role === "owner" || room.my_role === "admin");
 
+  const updateNearBottomState = useCallback(() => {
+    const container = messagesContainerRef.current;
+    if (!container) {
+      return;
+    }
+
+    const distanceFromBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight;
+    shouldStickToBottomRef.current =
+      distanceFromBottom <= AUTO_SCROLL_THRESHOLD_PX;
+  }, []);
+
+  const handleLoadOlderMessagesWithPreservedScroll = useCallback(() => {
+    const container = messagesContainerRef.current;
+    if (
+      !container ||
+      loadingOlderMessages ||
+      messagesLoading ||
+      !hasMoreMessages ||
+      preserveScrollStateRef.current.pending
+    ) {
+      return;
+    }
+
+    preserveScrollStateRef.current = {
+      pending: true,
+      scrollHeight: container.scrollHeight,
+      scrollTop: container.scrollTop,
+    };
+
+    onLoadOlderMessages();
+  }, [
+    hasMoreMessages,
+    loadingOlderMessages,
+    messagesLoading,
+    onLoadOlderMessages,
+  ]);
+
+  useEffect(() => {
+    initialAutoScrollDoneRef.current = false;
+    shouldStickToBottomRef.current = true;
+    preserveScrollStateRef.current = {
+      pending: false,
+      scrollHeight: 0,
+      scrollTop: 0,
+    };
+  }, [room.id]);
+
   useEffect(() => {
     const container = messagesContainerRef.current;
-    if (!container) return;
-
-    // Check if user is near bottom (within 120px)
-    const isNearBottom =
-      container.scrollHeight - container.scrollTop - container.clientHeight <=
-      120;
-
-    if (isNearBottom) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (!container) {
+      return;
     }
-  }, [messages]);
+
+    updateNearBottomState();
+
+    const handleScroll = () => {
+      updateNearBottomState();
+    };
+
+    container.addEventListener("scroll", handleScroll, { passive: true });
+    return () => container.removeEventListener("scroll", handleScroll);
+  }, [messages.length, messagesLoading, updateNearBottomState]);
+
+  useLayoutEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) {
+      return;
+    }
+
+    if (preserveScrollStateRef.current.pending) {
+      if (loadingOlderMessages) {
+        return;
+      }
+
+      const { scrollHeight, scrollTop } = preserveScrollStateRef.current;
+      const scrollDelta = container.scrollHeight - scrollHeight;
+      container.scrollTop = scrollTop + Math.max(scrollDelta, 0);
+      preserveScrollStateRef.current.pending = false;
+      updateNearBottomState();
+      return;
+    }
+
+    if (!initialAutoScrollDoneRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+      initialAutoScrollDoneRef.current = true;
+      updateNearBottomState();
+      return;
+    }
+
+    if (shouldStickToBottomRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      updateNearBottomState();
+    }
+  }, [loadingOlderMessages, messages, updateNearBottomState]);
 
   useEffect(() => {
     const container = messagesContainerRef.current;
@@ -133,22 +230,22 @@ export function ChatPanel({
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0]?.isIntersecting) {
-          onLoadOlderMessages();
+          handleLoadOlderMessagesWithPreservedScroll();
         }
       },
       {
         root: container,
-        threshold: 0.1,
+        threshold: 0,
       },
     );
 
     observer.observe(sentinel);
     return () => observer.disconnect();
   }, [
+    handleLoadOlderMessagesWithPreservedScroll,
     hasMoreMessages,
     loadingOlderMessages,
     messagesLoading,
-    onLoadOlderMessages,
   ]);
 
   return (
