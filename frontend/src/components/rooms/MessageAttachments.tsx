@@ -20,8 +20,8 @@ export function MessageAttachments({ attachments }: MessageAttachmentsProps) {
       }}
     >
       {attachments.map((att) => {
-        const isImage =
-          att.file_url.match(/\.(jpeg|jpg|gif|png|svg)$/i) !== null;
+        const previewTarget = att.original_name || att.file_url;
+        const isImage = /\.(jpeg|jpg|gif|png|svg|webp)$/i.test(previewTarget);
 
         return (
           <div

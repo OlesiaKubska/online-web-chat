@@ -4,6 +4,7 @@ import { PageShell } from "../components/rooms/PageShell";
 import { Panel } from "../components/rooms/Panel";
 import { AppNavBar } from "../components/navigation/AppNavBar";
 import { palette, inputStyle, primaryButtonStyle } from "../styles/roomsTheme";
+import { ApiError, register } from "../lib/api";
 
 const RegisterPage = () => {
   const navigate = useNavigate();
@@ -27,49 +28,28 @@ const RegisterPage = () => {
     setMessage("");
 
     try {
-      const response = await fetch("http://localhost:8000/api/auth/register/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, username, password }),
-      });
+      await register({ email, username, password });
 
-      const data = await response.json();
+      setIsSuccess(true);
+      setMessage("Registration successful! Redirecting to log in...");
+      setEmail("");
+      setUsername("");
+      setPassword("");
 
-      if (response.ok) {
-        setIsSuccess(true);
-        setMessage("Registration successful! Redirecting to log in...");
-        setEmail("");
-        setUsername("");
-        setPassword("");
-
-        if (redirectTimeoutRef.current !== null) {
-          window.clearTimeout(redirectTimeoutRef.current);
-        }
-
-        redirectTimeoutRef.current = window.setTimeout(() => {
-          navigate("/login");
-        }, 1000);
-      } else {
-        setIsSuccess(false);
-
-        if (data.email) {
-          setMessage(data.email[0]);
-        } else if (data.username) {
-          setMessage(data.username[0]);
-        } else if (data.password) {
-          setMessage(data.password[0]);
-        } else if (data.detail) {
-          setMessage(data.detail);
-        } else {
-          setMessage("Registration failed");
-        }
+      if (redirectTimeoutRef.current !== null) {
+        window.clearTimeout(redirectTimeoutRef.current);
       }
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
+      redirectTimeoutRef.current = window.setTimeout(() => {
+        navigate("/login");
+      }, 1000);
     } catch (error) {
       setIsSuccess(false);
-      setMessage("Network error");
+      if (error instanceof ApiError) {
+        setMessage(error.message);
+      } else {
+        setMessage("Network error");
+      }
     }
   };
 

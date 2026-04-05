@@ -1,4 +1,7 @@
+import { useState } from "react";
+
 import SectionShell from "../rooms/SectionShell";
+import { ConfirmModal } from "../rooms/ConfirmModal";
 import { Panel } from "../rooms/Panel";
 import {
   palette,
@@ -16,8 +19,8 @@ interface FriendsListSectionProps {
   friendActionLoadingKey: string | null;
   presenceByUserId: Record<number, UserPresenceStatus>;
   onMessage: (friendId: number) => void;
-  onRemoveFriend: (friendId: number) => void;
-  onBanUser: (friendId: number) => void;
+  onRemoveFriend: (friendId: number) => Promise<void> | void;
+  onBanUser: (friendId: number) => Promise<void> | void;
 }
 
 export function FriendsListSection({
@@ -29,6 +32,12 @@ export function FriendsListSection({
   onRemoveFriend,
   onBanUser,
 }: FriendsListSectionProps) {
+  const [pendingAction, setPendingAction] = useState<{
+    type: "remove" | "ban";
+    friendId: number;
+    username: string;
+  } | null>(null);
+
   const emptyTextStyle = { color: palette.textMuted, margin: 0 } as const;
   const emailStyle = {
     marginTop: "6px",
@@ -42,6 +51,22 @@ export function FriendsListSection({
     gap: "8px",
     flexWrap: "wrap",
   } as const;
+
+  const handleConfirmAction = async () => {
+    if (!pendingAction) {
+      return;
+    }
+
+    try {
+      if (pendingAction.type === "remove") {
+        await onRemoveFriend(pendingAction.friendId);
+      } else {
+        await onBanUser(pendingAction.friendId);
+      }
+    } finally {
+      setPendingAction(null);
+    }
+  };
 
   return (
     <SectionShell
@@ -89,7 +114,13 @@ export function FriendsListSection({
 
                 <button
                   type="button"
-                  onClick={() => onRemoveFriend(friend.id)}
+                  onClick={() =>
+                    setPendingAction({
+                      type: "remove",
+                      friendId: friend.id,
+                      username: friend.username,
+                    })
+                  }
                   disabled={friendActionLoadingKey === `remove-${friend.id}`}
                   style={{
                     ...secondaryButtonStyle,
@@ -106,7 +137,13 @@ export function FriendsListSection({
 
                 <button
                   type="button"
-                  onClick={() => onBanUser(friend.id)}
+                  onClick={() =>
+                    setPendingAction({
+                      type: "ban",
+                      friendId: friend.id,
+                      username: friend.username,
+                    })
+                  }
                   disabled={friendActionLoadingKey === `ban-${friend.id}`}
                   style={{
                     ...dangerButtonStyle,
@@ -124,6 +161,29 @@ export function FriendsListSection({
           ))}
         </div>
       )}
+
+      <ConfirmModal
+        open={pendingAction !== null}
+        title={pendingAction?.type === "ban" ? "Ban user?" : "Remove friend?"}
+        message={
+          pendingAction?.type === "ban"
+            ? `Ban ${pendingAction.username}? This will also remove the friendship.`
+            : `Remove ${pendingAction?.username} from your friends list?`
+        }
+        confirmLabel={
+          pendingAction?.type === "ban" ? "Ban user" : "Remove friend"
+        }
+        danger={pendingAction?.type === "ban"}
+        loading={
+          pendingAction?.type === "ban"
+            ? friendActionLoadingKey === `ban-${pendingAction.friendId}`
+            : pendingAction?.type === "remove"
+              ? friendActionLoadingKey === `remove-${pendingAction.friendId}`
+              : false
+        }
+        onCancel={() => setPendingAction(null)}
+        onConfirm={handleConfirmAction}
+      />
     </SectionShell>
   );
 }
