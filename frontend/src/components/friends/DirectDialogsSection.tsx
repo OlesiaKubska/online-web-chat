@@ -1,4 +1,5 @@
 import SectionShell from "../rooms/SectionShell";
+import { MetaPill } from "../rooms/MetaPill";
 import { Panel } from "../rooms/Panel";
 import { palette, secondaryButtonStyle } from "../../styles/roomsTheme";
 import { PresenceBadge } from "../rooms/PresenceBadge";
@@ -84,18 +85,9 @@ export function DirectDialogsSection({
                       }
                     />
                     {dialog.unread_count > 0 && (
-                      <div
-                        style={{
-                          padding: "2px 8px",
-                          borderRadius: "999px",
-                          border: `1px solid ${palette.danger}`,
-                          color: palette.danger,
-                          fontSize: "12px",
-                          fontWeight: 700,
-                        }}
-                      >
+                      <MetaPill tone="danger">
                         Unread: {dialog.unread_count}
-                      </div>
+                      </MetaPill>
                     )}
                   </div>
                   <button

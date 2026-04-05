@@ -35,6 +35,7 @@ import { FriendsListSection } from "../components/friends/FriendsListSection";
 import { TwoColumnLayout } from "../components/layout/TwoColumnLayout";
 
 const PRESENCE_REFRESH_INTERVAL_MS = 2000;
+const DIALOG_REFRESH_INTERVAL_MS = 5000;
 
 function getErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof ApiError) {
@@ -160,9 +161,39 @@ export default function FriendsPage() {
     }
   }, []);
 
+  const refreshDialogs = useCallback(async () => {
+    try {
+      const dialogsData = await getDirectDialogs();
+      setDialogs(dialogsData);
+    } catch {
+      // Ignore background refresh errors and keep current notification badges.
+    }
+  }, []);
+
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  useEffect(() => {
+    const refreshUnreadDialogs = () => {
+      if (document.visibilityState === "visible") {
+        void refreshDialogs();
+      }
+    };
+
+    const intervalId = window.setInterval(
+      refreshUnreadDialogs,
+      DIALOG_REFRESH_INTERVAL_MS,
+    );
+    window.addEventListener("focus", refreshUnreadDialogs);
+    document.addEventListener("visibilitychange", refreshUnreadDialogs);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", refreshUnreadDialogs);
+      document.removeEventListener("visibilitychange", refreshUnreadDialogs);
+    };
+  }, [refreshDialogs]);
 
   useEffect(() => {
     void refreshPresence();

@@ -15,6 +15,8 @@ import { PageShell } from "../components/rooms/PageShell";
 import { TopBar } from "../components/rooms/TopBar";
 import { TwoColumnLayout } from "../components/layout/TwoColumnLayout";
 
+const UNREAD_REFRESH_INTERVAL_MS = 5000;
+
 export default function RoomsPage() {
   const navigate = useNavigate();
 
@@ -51,9 +53,39 @@ export default function RoomsPage() {
     }
   }, []);
 
+  const refreshMyRooms = useCallback(async () => {
+    try {
+      const myData = await getMyRooms();
+      setMyRooms(myData);
+    } catch {
+      // Keep the current list if the background refresh fails.
+    }
+  }, []);
+
   useEffect(() => {
     fetchRooms();
   }, [fetchRooms]);
+
+  useEffect(() => {
+    const refreshUnreadRooms = () => {
+      if (document.visibilityState === "visible") {
+        void refreshMyRooms();
+      }
+    };
+
+    const intervalId = window.setInterval(
+      refreshUnreadRooms,
+      UNREAD_REFRESH_INTERVAL_MS,
+    );
+    window.addEventListener("focus", refreshUnreadRooms);
+    document.addEventListener("visibilitychange", refreshUnreadRooms);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", refreshUnreadRooms);
+      document.removeEventListener("visibilitychange", refreshUnreadRooms);
+    };
+  }, [refreshMyRooms]);
 
   const handleCreateRoom = async (e: React.FormEvent) => {
     e.preventDefault();
